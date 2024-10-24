@@ -5,7 +5,8 @@
 
 (
     slice, int, int, int,
-    int, int, int, int
+    int, int, int, int,
+    int, slice
 ) get_storage() method_id {
     load_storage();
 
@@ -13,11 +14,13 @@
     int remaining_supply:u256 = 0;
     int total_pack:u16 = 0;
     int remaining_pack:u16 = 0;
+    int deadline:u32 = 0;
 
     if (_packet_type:u8 == type::red_packet::single) {
         (
             total_supply:u256,
-            remaining_supply:u256
+            remaining_supply:u256,
+            deadline:u32
         ) = @Single_data::de(_packet_data:cell);
     }
     if (_packet_type:u8 == type::red_packet::multiple_fixed) {
@@ -25,7 +28,8 @@
             total_supply:u256,
             remaining_supply:u256,
             total_pack:u16,
-            remaining_pack:u16
+            remaining_pack:u16,
+            deadline:u32
         ) = @Multiple_fix_data::de(_packet_data:cell);
     }
     if (_packet_type:u8 == type::red_packet::multiple_random) {
@@ -33,12 +37,23 @@
             total_supply:u256,
             remaining_supply:u256,
             total_pack:u16,
-            remaining_pack:u16
+            remaining_pack:u16,
+            deadline:u32
         ) = @Multiple_random_data::de(_packet_data:cell);
+    }
+    if (_packet_type:u8 == type::red_packet::multiple_specific) {
+        (
+            total_supply:u256,
+            remaining_supply:u256,
+            total_pack:u16,
+            remaining_pack:u16,
+            deadline:u32
+        ) = @Multiple_specific_data::de(_packet_data:cell);
     }
 
     return (
         _router:addr, _red_packet_index:u64, _state:u8, _packet_type:u8,
-        total_supply:u256, remaining_supply:u256, total_pack:u16, remaining_pack:u16
+        total_supply:u256, remaining_supply:u256, total_pack:u16, remaining_pack:u16,
+        deadline:u32, _creator:addr
     );
 }

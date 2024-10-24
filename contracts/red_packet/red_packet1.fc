@@ -19,10 +19,11 @@ cell params
 ) impure inline_ref {
 
     (
+        int uid:u64,
         int packet_type:u8,
         slice token:addr,
         int amount:u256,
-        slice creater:addr,
+        slice creator:addr,
         cell red_packet_init_data:cell
     ) = red_packet::Init::de(params);
 
@@ -30,10 +31,11 @@ cell params
     throw_unless(302, _packet_type:u8 == type::red_packet::unknown);
 
     @init(
+        uid:u64,
         packet_type:u8,
         token:addr,
         amount:u256,
-        creater:addr,
+        creator:addr,
         red_packet_init_data:cell
     );
 
@@ -45,28 +47,46 @@ cell params
 ) impure inline_ref {
 
     (
-        slice recipient:addr
+        int uid:u64,
+        slice recipient:addr,
+        cell red_packet::Claim_server:cell
     ) = red_packet::Claim::de(params);
 
     throw_unless(303, equal_slices(sender:addr, _router:addr));
-    throw_unless(304, _state:u8 == state::red_packet::normal);
+    throw_unless(304,
+        (_state:u8 == state::red_packet::normal) |
+        (_state:u8 == state::red_packet::refunded_but_not_finished)
+    );
 
-    @claim(recipient:addr);
+    @claim(
+        uid:u64,
+        recipient:addr,
+        red_packet::Claim_server:cell
+    );
 
     save_storage();
 
 }
 
+;;refund
 () @close_procedure(
 cell params
 ) impure inline_ref {
 
-    _ = red_packet::Close::de(params);
+    (
+        int uid:u64,
+        slice user_caller:addr,
+        cell red_packet::Close_server:cell
+    ) = red_packet::Close::de(params);
 
     throw_unless(303, equal_slices(sender:addr, _router:addr));
     throw_unless(304, _state:u8 == state::red_packet::normal);
 
-    @close();
+    @close(
+        uid:u64,
+        user_caller:addr,
+        red_packet::Close_server:cell
+    );
 
     save_storage();
 }

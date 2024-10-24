@@ -7,6 +7,7 @@ export type ReportType = ReportCreate | ReportWithdraw | ReportRefund;
 export interface ReportCreate {
     op: "create";
     tx: Transaction;
+    uid: bigint;
     packetType: number;
     token: Address;
     amount: bigint;
@@ -17,6 +18,7 @@ export interface ReportCreate {
 export interface ReportWithdraw {
     op: "withdraw";
     tx: Transaction;
+    uid: bigint;
     token: Address;
     amount: bigint;
     recipient: Address;
@@ -26,13 +28,18 @@ export interface ReportWithdraw {
 export interface ReportRefund {
     op: "refund";
     tx: Transaction;
+    uid: bigint;
     token: Address;
     amount: bigint;
     recipient: Address;
     redPacketIndex: bigint;
 }
 
-export type RedPacketData = RedPacketSingle | RedPacketMultipleFixed | RedPacketMultipleRandom
+export type RedPacketData =
+    RedPacketSingle
+    | RedPacketMultipleFixed
+    | RedPacketMultipleRandom
+    | RedPacketMultipleSpecific
 
 export interface RedPacketSingle {
     packetType: `single`,
@@ -50,6 +57,14 @@ export interface RedPacketMultipleFixed {
 
 export interface RedPacketMultipleRandom {
     packetType: `multipleRandom`,
+    totalSupply: bigint,
+    remainingSupply: bigint,
+    totalPack: number,
+    remainingPack: number,
+}
+
+export interface RedPacketMultipleSpecific {
+    packetType: `multipleSpecific`,
     totalSupply: bigint,
     remainingSupply: bigint,
     totalPack: number,
@@ -127,6 +142,7 @@ export class Report implements Contract {
 
         let cs = param.beginParse()
 
+        let uid = cs.loadUintBig(64);
         let packetType = cs.loadUint(8);
         let token = cs.loadAddress();
         let amount = cs.loadUintBig(256);
@@ -171,6 +187,20 @@ export class Report implements Contract {
                 totalPack,
                 remainingPack,
             }
+        } else if (packetType == Params.PacketTypeOp.multipleSpecific) {
+
+            let cs = param.beginParse()
+            let totalSupply = cs.loadUintBig(256);
+            let remainingSupply = cs.loadUintBig(256);
+            let totalPack = cs.loadUint(8);
+            let remainingPack = cs.loadUint(8);
+            redPacketData = {
+                packetType: `multipleSpecific`,
+                totalSupply,
+                remainingSupply,
+                totalPack,
+                remainingPack,
+            }
         }
 
         if (!redPacketData) {
@@ -181,6 +211,7 @@ export class Report implements Contract {
         return {
             op: "create",
             tx: tx,
+            uid: uid,
             packetType: packetType,
             token: token,
             amount: amount,
@@ -193,6 +224,7 @@ export class Report implements Contract {
 
         let cs = param.beginParse()
 
+        let uid = cs.loadUintBig(64);
         let token = cs.loadAddress();
         let amount = cs.loadUintBig(256);
         let recipient = cs.loadAddress();
@@ -201,6 +233,7 @@ export class Report implements Contract {
         return {
             op: "withdraw",
             tx,
+            uid,
             token,
             amount,
             recipient,
@@ -212,6 +245,7 @@ export class Report implements Contract {
 
         let cs = param.beginParse()
 
+        let uid = cs.loadUintBig(64);
         let token = cs.loadAddress();
         let amount = cs.loadUintBig(256);
         let recipient = cs.loadAddress();
@@ -220,6 +254,7 @@ export class Report implements Contract {
         return {
             op: "refund",
             tx,
+            uid,
             token,
             amount,
             recipient,

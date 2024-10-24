@@ -4,31 +4,39 @@
 
 #include "../router/export.fc";
 
+#include "request.fc";
 #include "storage1.fc";
+#include "../utils/utils.fc";
 
 () @claim(
-slice recipient:addr
+int uid:u64,
+slice recipient:addr,
+cell red_packet::Claim_server:cell
 ) impure inline_ref {
 
     int value_remaining = fee::red_packet::claim(my_balance:coin, msg_value:coin);
 
     int claim_amount:u256 = 0;
     int reclaimedAll:u1 = FALSE:u1;
+    int now:u32 = now();
     if (_packet_type:u8 == type::red_packet::single) {
 
         (
             int total_supply:u256,
-            int remaining_supply:u256
+            int remaining_supply:u256,
+            int deadline:u32
         ) = @Single_data::de(_packet_data:cell);
 
         throw_unless(305, total_supply:u256 == remaining_supply:u256);
+        throw_unless(310, now:u32 < deadline:u32);
 
         claim_amount:u256 = total_supply:u256;
         remaining_supply:u256 = 0;
 
         _packet_data:cell = @Single_data::se(
             total_supply:u256,
-            remaining_supply:u256
+            remaining_supply:u256,
+            deadline:u32
         );
         _state:u8 = state::red_packet::finished;
 
@@ -40,11 +48,13 @@ slice recipient:addr
             int total_supply:u256,
             int remaining_supply:u256,
             int total_pack:u16,
-            int remaining_pack:u16
+            int remaining_pack:u16,
+            int deadline:u32
         ) = @Multiple_fix_data::de(_packet_data:cell);
 
         throw_unless(306, 0 < remaining_supply:u256);
         throw_unless(307, 0 < remaining_pack:u16);
+        throw_unless(310, now:u32 < deadline:u32);
 
         claim_amount:u256 = total_supply:u256 / total_pack:u16;
         remaining_supply:u256 -= claim_amount:u256;
@@ -62,7 +72,8 @@ slice recipient:addr
             total_supply:u256,
             remaining_supply:u256,
             total_pack:u16,
-            remaining_pack:u16
+            remaining_pack:u16,
+            deadline:u32
         );
 
         if (remaining_pack:u16 == 0) {
@@ -77,13 +88,13 @@ slice recipient:addr
             ;;remaining_supply:u256里
             int remaining_supply:u256,
             int total_pack:u16,
-            int remaining_pack:u16
+            int remaining_pack:u16,
+            int deadline:u32
         ) = @Multiple_random_data::de(_packet_data:cell);
 
         throw_unless(308, 0 < remaining_pack:u16);
+        throw_unless(310, now:u32 < deadline:u32);
 
-        ~strdump("multiple_random remaining_pack:u16");
-        ~dump(remaining_pack:u16);
 
         if (remaining_pack:u16 == 1) {
             claim_amount:u256 = remaining_supply:u256;
@@ -93,8 +104,6 @@ slice recipient:addr
 
             claim_amount:u256 = rand(claim_amount_max:u256) + 1;
         }
-        ~strdump("multiple_random claim_amount:u256");
-        ~dump(claim_amount:u256);
 
         remaining_supply:u256 -= claim_amount:u256;
         remaining_pack:u16 -= 1;
@@ -103,24 +112,71 @@ slice recipient:addr
             _state:u8 = state::red_packet::finished;
         }
 
-
-        ~strdump("multiple_random remaining_pack:u16 after logic");
-        ~dump(remaining_pack:u16);
-
         _packet_data:cell = @Multiple_random_data::se(
             total_supply:u256,
             remaining_supply:u256,
             total_pack:u16,
-            remaining_pack:u16
+            remaining_pack:u16,
+            deadline:u32
         );
 
         if (remaining_pack:u16 == 0) {
             reclaimedAll:u1 = TRUE:u1;
         }
     }
+    if (_packet_type:u8 == type::red_packet::multiple_specific) {
 
-    ~strdump("multiple_random _state:u8 after logic");
-    ~dump(_state:u8);
+        (
+            int total_supply:u256,
+            int remaining_supply:u256,
+            ;;pack其实没有意义,仅仅作为计数和校验
+            int total_pack:u16,
+            int remaining_pack:u16,
+            int deadline:u32
+        ) = @Multiple_specific_data::de(_packet_data:cell);
+
+        throw_unless(308, 0 < remaining_pack:u16);
+        throw_unless(306, 0 < remaining_supply:u256);
+        throw_unless(310, now:u32 < deadline:u32);
+
+        (
+            claim_amount:u256
+        ) = red_packet::Claim_server::de(red_packet::Claim_server:cell);
+
+        ~strdump("claim multiple_specific claim_amount:u256:");
+        ~dump(claim_amount:u256);
+
+        throw_unless(316, claim_amount:u256 <= remaining_supply:u256);
+
+        remaining_supply:u256 -= claim_amount:u256;
+        remaining_pack:u16 -= 1;
+
+        ~strdump("remaining_supply:u256:");
+        ~dump([remaining_supply:u256, remaining_pack:u16, _state:u8]);
+
+        if (remaining_supply:u256 == 0) {
+            if (_state:u8 == state::red_packet::refunded_but_not_finished) {
+                ~strdump("hit");
+
+                _state:u8 = state::red_packet::refunded;
+            } else {
+                _state:u8 = state::red_packet::finished;
+            }
+        }
+        ~dump([_state:u8]);
+
+        _packet_data:cell = @Multiple_specific_data::se(
+            total_supply:u256,
+            remaining_supply:u256,
+            total_pack:u16,
+            remaining_pack:u16,
+            deadline:u32
+        );
+
+        if (remaining_pack:u16 == 0) {
+            reclaimedAll:u1 = TRUE:u1;
+        }
+    }
 
     ;;ask router to send token
     ifnot (reclaimedAll:u1) {
@@ -130,6 +186,7 @@ slice recipient:addr
             op::router::withdraw,
             query_id:u64,
             router::Withdraw::se(
+                uid:u64,
                 _token:addr,
                 claim_amount:u256,
                 recipient:addr,
@@ -146,6 +203,7 @@ slice recipient:addr
             op::router::withdraw,
             query_id:u64,
             router::Withdraw::se(
+                uid:u64,
                 _token:addr,
                 claim_amount:u256,
                 recipient:addr,

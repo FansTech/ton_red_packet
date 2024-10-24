@@ -8,6 +8,7 @@
 #include "report.fc";
 
 () @create_finished(
+int uid:u64,
 int packet_type:u8,
 slice token:addr,
 int amount:u256,
@@ -25,6 +26,7 @@ cell red_packet_data:cell
         op::report::report_create,
         query_id:u64,
         router::Report_create::se(
+            uid:u64,
             packet_type:u8,
             token:addr,
             amount:u256,

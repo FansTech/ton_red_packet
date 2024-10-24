@@ -37,3 +37,11 @@ export function buildCodeDeployment(codeManager: KeyPair, codeVersion: bigint | 
 
     return codeDeployment;
 }
+
+
+export function signCell(keyPair: KeyPair, toSign: Cell) {
+
+    let sig = sign(toSign.hash(), keyPair.secretKey);
+
+    return sig;
+}

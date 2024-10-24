@@ -1,5 +1,7 @@
 import {Address, beginCell, Cell, Contract, contractAddress, ContractProvider, Sender, SendMode} from '@ton/core';
 import {crc32str} from "./crc32";
+import {KeyPair} from "@ton/crypto/dist/primitives/nacl";
+import {signCell} from "../scripts/utils";
 
 export class RouterWrapper implements Contract {
     static readonly Opcodes = {
@@ -56,9 +58,8 @@ export class RouterWrapper implements Contract {
         reporter: Address,
         redPacketBaseCode: Cell,
         redPacketDeployment: Cell,
-        server0: Address,
-        server1: Address,
-        server2: Address,
+        serverPublicKey: bigint,
+        server: Address,
     }) {
         return beginCell()
             .storeUint(RouterWrapper.Opcodes.init, 32)
@@ -68,31 +69,28 @@ export class RouterWrapper implements Contract {
                     .storeAddress(opts.reporter)
                     .storeRef(opts.redPacketBaseCode)
                     .storeRef(opts.redPacketDeployment)
-                    .storeRef(
-                        beginCell()
-                            .storeAddress(opts.server0)
-                            .storeAddress(opts.server1)
-                            .storeAddress(opts.server2)
-                            .endCell()
-                    )
+                    .storeUint(opts.serverPublicKey, 256)
+                    .storeAddress(opts.server)
                     .endCell()
             )
             .endCell();
     }
 
-    static buildCreate(opts: {
-        create: Cell,
+    static buildCreatePayload(opts: {
+        createParam: Cell,
     }) {
         return beginCell()
             .storeUint(RouterWrapper.Opcodes.create, 32)
             .storeUint(0, 64)
-            .storeRef(opts.create)
+            .storeRef(opts.createParam)
             .endCell();
     }
 
     static buildClaim(opts: {
         recipient: Address,
         redPacketIndex: number | bigint,
+        uid: bigint,
+        redPacketClaimServer: Cell
         queryId: bigint,
     }) {
         return beginCell()
@@ -102,6 +100,8 @@ export class RouterWrapper implements Contract {
                 beginCell()
                     .storeAddress(opts.recipient)
                     .storeUint(opts.redPacketIndex, 64)
+                    .storeUint(opts.uid, 64)
+                    .storeRef(opts.redPacketClaimServer)
                     .endCell()
             )
             .endCell();
@@ -109,14 +109,32 @@ export class RouterWrapper implements Contract {
 
     static buildClose(opts: {
         redPacketIndex: number | bigint,
+        uid: bigint,
+        redPacketCloseServer: Cell,
         queryId: bigint,
+        keyPair: KeyPair
     }) {
+
+        let toSign = beginCell()
+            .storeUint(opts.uid, 64)
+            .storeRef(opts.redPacketCloseServer)
+            .endCell()
+
+        let sig = signCell(opts.keyPair, toSign)
+
         return beginCell()
             .storeUint(RouterWrapper.Opcodes.close, 32)
             .storeUint(opts.queryId, 64)
             .storeRef(
                 beginCell()
                     .storeUint(opts.redPacketIndex, 64)
+                    .storeUint(opts.uid, 64)
+                    .storeRef(opts.redPacketCloseServer)
+                    .storeRef(
+                        beginCell()
+                            .storeBuffer(sig)
+                            .endCell()
+                    )
                     .endCell()
             )
             .endCell();
@@ -197,10 +215,9 @@ export class RouterWrapper implements Contract {
         let reporter = res.stack.readAddress();
         let redPacketBaseCode = res.stack.readCell();
         let redPacketDeployment = res.stack.readCell();
-        let server0 = res.stack.readAddress();
+        let serverPublicKey = res.stack.readBigNumber();
 
-        let server1 = res.stack.readAddress();
-        let server2 = res.stack.readAddress();
+        let server = res.stack.readAddress();
 
         return {
             ctx,
@@ -211,10 +228,9 @@ export class RouterWrapper implements Contract {
             reporter,
             redPacketBaseCode,
             redPacketDeployment,
-            server0,
+            serverPublicKey,
 
-            server1,
-            server2,
+            server,
         };
     }
 

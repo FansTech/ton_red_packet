@@ -5,7 +5,6 @@ cell @Deployment::se(
 cell signature:cell,
 cell Code_pack:cell
 ) impure {
-    ~strdump("@Deployment::se");
     return begin_cell()
         .store_ref(signature:cell)
         .store_ref(Code_pack:cell)
@@ -13,7 +12,6 @@ cell Code_pack:cell
 }
 
 (cell, cell) @Deployment::de(cell input) impure {
-    ~strdump("@Deployment::de");
     slice s = input.begin_parse();
     return (
         s~load_ref(), s~load_ref()
@@ -24,7 +22,6 @@ cell @Code_pack::se(
 int code_version:u8,
 cell code:cell
 ) impure {
-    ~strdump("@Code_pack::se");
     return begin_cell()
         .store_uint(code_version:u8, 8)
         .store_ref(code:cell)
@@ -32,7 +29,6 @@ cell code:cell
 }
 
 (int, cell) @Code_pack::de(cell input) impure {
-    ~strdump("@Code_pack::de");
     slice s = input.begin_parse();
     return (
         s~load_uint(8), s~load_ref()

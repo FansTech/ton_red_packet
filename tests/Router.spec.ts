@@ -8,7 +8,7 @@ import {JettonMinterWrapper} from "../adapters/JettonMinter.wrapper";
 import {JettonWalletWrapper} from "../adapters/JettonWallet.wrapper";
 import {WTonMinterWrapper} from "../adapters/WTonMinter.wrapper";
 import {WTonWalletWrapper} from "../adapters/WTonWallet.wrapper";
-import {addressHash, addressZero, buildCodeDeployment,} from "../scripts/utils";
+import {addressHash, addressZero, buildCodeDeployment, signCell,} from "../scripts/utils";
 import {Params} from "../adapters/Params";
 import {KeyPair} from "@ton/crypto/dist/primitives/nacl";
 import {mnemonicToPrivateKey, sha256} from "@ton/crypto";
@@ -33,6 +33,9 @@ describe('Router', () => {
     let codeManagerKeyPair: KeyPair;
     let codeManagerPublicKey: bigint;
 
+    let serverKeyPair: KeyPair;
+    let serverPublicKey: bigint;
+
     let router: SandboxContract<RouterWrapper>;
     let redPacket: SandboxContract<RedPacketWrapper>;
 
@@ -53,6 +56,7 @@ describe('Router', () => {
     let redPacketMultipleFixed: SandboxContract<RedPacketWrapper>
     let redPacketMultipleRandom: SandboxContract<RedPacketWrapper>
     let redPacketMultipleFixedRefund: SandboxContract<RedPacketWrapper>
+    let redPacketMultipleSpecific: SandboxContract<RedPacketWrapper>
 
     let queryId = 1n;
 
@@ -81,6 +85,10 @@ describe('Router', () => {
             routerDeployment = buildCodeDeployment(codeManagerKeyPair, 1, await compile("Router1"));
             redPacketBaseCode = await compile("RedPacket0");
             redPacketDeployment = buildCodeDeployment(codeManagerKeyPair, 1, await compile("RedPacket1"));
+
+            serverKeyPair = await mnemonicToPrivateKey('test test test test test test test test test test test server'.split(` `));
+            serverPublicKey = BigInt(`0x` + serverKeyPair.publicKey.toString(`hex`));
+
 
             router = blockchain.openContract(
                 RouterWrapper.createFromConfig(
@@ -111,9 +119,8 @@ describe('Router', () => {
                     reporter: reporter.address,
                     redPacketBaseCode,
                     redPacketDeployment,
-                    server0: server.address,
-                    server1: addressZero,
-                    server2: addressZero,
+                    serverPublicKey: serverPublicKey,
+                    server: server.address,
                 })
             );
             expect(txResult.transactions).not.toHaveTransaction({
@@ -280,6 +287,7 @@ describe('Router', () => {
         let createTxFee = await router.getRouterCreateTxFee();
         console.log(`createTxFee ${fromNano(createTxFee)}`)
 
+
         let {body, tonAmount} = WTonWalletWrapper.buildTransfer(
             {
                 queryId: queryId++,
@@ -287,10 +295,18 @@ describe('Router', () => {
                 toOwner: router.address,
                 responseAddress: alice.address,
                 forwardTonAmount: createTxFee,
-                forwardPayload: RouterWrapper.buildCreate({
-                    create: Params.composeCreatePayload({
-                        op: "single",
-                    })
+                forwardPayload: RouterWrapper.buildCreatePayload({
+                    createParam: Params.composeCreateParamSigned(
+                        {
+                            packetData: {
+                                op: "single",
+                                deadline: 1730779273,
+                            },
+                            uid: 1234n,
+                            allowedJettonUserWallet: wTonWalletRouter.address,
+                            keyPair: serverKeyPair
+                        }
+                    )
                 }),
             }
         );
@@ -336,6 +352,8 @@ describe('Router', () => {
                 recipient: bob.address,
                 redPacketIndex: 0,
                 queryId: queryId++,
+                uid: 412341234n,
+                redPacketClaimServer: beginCell().endCell()
             }
         );
 
@@ -381,11 +399,20 @@ describe('Router', () => {
                 toOwner: router.address,
                 responseAddress: bob.address,
                 forwardTonAmount: createTxFee,
-                forwardPayload: RouterWrapper.buildCreate({
-                    create: Params.composeCreatePayload({
-                        op: "multipleFixed",
-                        totalPack: 2
-                    })
+                forwardPayload: RouterWrapper.buildCreatePayload({
+                    createParam: Params.composeCreateParamSigned(
+                        {
+                            packetData: {
+                                op: "multipleFixed",
+                                totalPack: 2,
+                                deadline: 1730779273,
+                            },
+                            uid: 51234123n,
+                            allowedJettonUserWallet: wTonWalletRouter.address,
+                            keyPair: serverKeyPair
+                        }
+                    ),
+
                 }),
             }
         );
@@ -430,6 +457,8 @@ describe('Router', () => {
                     recipient: alice.address,
                     redPacketIndex: 1,
                     queryId: queryId++,
+                    uid: 9778940123n,
+                    redPacketClaimServer: beginCell().endCell()
                 }
             );
 
@@ -459,6 +488,8 @@ describe('Router', () => {
                     recipient: carlos.address,
                     redPacketIndex: 1,
                     queryId: queryId++,
+                    uid: 71234123n,
+                    redPacketClaimServer: beginCell().endCell()
                 }
             );
 
@@ -494,11 +525,19 @@ describe('Router', () => {
                 toOwner: router.address,
                 responseAddress: carlos.address,
                 forwardTonAmount: createTxFee,
-                forwardPayload: RouterWrapper.buildCreate({
-                    create: Params.composeCreatePayload({
-                        op: "multipleRandom",
-                        totalPack: 2
-                    })
+                forwardPayload: RouterWrapper.buildCreatePayload({
+                    createParam: Params.composeCreateParamSigned(
+                        {
+                            packetData: {
+                                op: "multipleRandom",
+                                totalPack: 2,
+                                deadline: 1730779273,
+                            },
+                            uid: 5623905n,
+                            allowedJettonUserWallet: jettonWalletRouter.address,
+                            keyPair: serverKeyPair
+                        }
+                    )
                 }),
             }
         );
@@ -544,6 +583,8 @@ describe('Router', () => {
                     recipient: alice.address,
                     redPacketIndex: 2,
                     queryId: queryId++,
+                    uid: 875341234n,
+                    redPacketClaimServer: beginCell().endCell()
                 }
             );
 
@@ -581,6 +622,8 @@ describe('Router', () => {
                     recipient: bob.address,
                     redPacketIndex: 2,
                     queryId: queryId++,
+                    uid: 57891234n,
+                    redPacketClaimServer: beginCell().endCell()
                 }
             );
 
@@ -620,11 +663,18 @@ describe('Router', () => {
                 toOwner: router.address,
                 responseAddress: bob.address,
                 forwardTonAmount: createTxFee,
-                forwardPayload: RouterWrapper.buildCreate({
-                    create: Params.composeCreatePayload({
-                        op: "multipleFixed",
-                        totalPack: 2
-                    })
+                forwardPayload: RouterWrapper.buildCreatePayload({
+                    createParam: Params.composeCreateParamSigned(
+                        {
+                            packetData: {
+                                op: "multipleFixed",
+                                totalPack: 2,
+                                deadline: 1730779273,
+                            },
+                            uid: 3126123405n,
+                            allowedJettonUserWallet: wTonWalletRouter.address,
+                            keyPair: serverKeyPair
+                        })
                 }),
             }
         );
@@ -646,6 +696,7 @@ describe('Router', () => {
         expect((await redPacketMultipleFixedRefund.getStorage()).totalSupply).toEqual(toNano(50))
         expect((await redPacketMultipleFixedRefund.getStorage()).totalPack).toEqual(2)
         expect((await redPacketMultipleFixedRefund.getStorage()).remainingPack).toEqual(2)
+        expect((await redPacketMultipleFixedRefund.getStorage()).creator.equals(bob.address)).toEqual(true)
 
         //初始化时给到了1Ton,收到10Ton+一点gasFee,又取走了,消耗了一点gas,有收到了4ton
         expect((await wTonWalletRouter.getWalletData())?.balance).toBeGreaterThan(toNano(4) + toNano(1))
@@ -668,6 +719,8 @@ describe('Router', () => {
                 recipient: alice.address,
                 redPacketIndex: 3,
                 queryId: queryId++,
+                uid: 2134551n,
+                redPacketClaimServer: beginCell().endCell()
             }
         );
 
@@ -691,7 +744,7 @@ describe('Router', () => {
         expect(toNano(25) - (aliceBalanceAfter - aliceBalanceBefore)).toBeLessThan(toNano(0.001))
     })
 
-    it('server on behalf of bob to close multiple fixed', async () => {
+    it('bob to close multiple fixed', async () => {
 
         console.log(`=============================================server on behalf of bob to close multiple fixed=============================================`)
 
@@ -706,12 +759,15 @@ describe('Router', () => {
         let body = RouterWrapper.buildClose(
             {
                 redPacketIndex: 3,
+                uid: 129412n,
+                redPacketCloseServer: beginCell().endCell(),
+                keyPair: serverKeyPair,
                 queryId: queryId++,
             }
         );
 
         let txResult = await router.sendTx(
-            server.getSender(),
+            bob.getSender(),
             closeTxFee,
             body
         );
@@ -719,20 +775,156 @@ describe('Router', () => {
             success: false,
         });
         expect((await redPacketMultipleFixedRefund.getStorage()).state).toEqual(RedPacketWrapper.State.refund)
-        expect((await redPacketMultipleFixedRefund.getStorage()).remainingSupply).toEqual(toNano(50) - toNano(25))
+        expect((await redPacketMultipleFixedRefund.getStorage()).remainingSupply).toEqual(0n)
         expect((await redPacketMultipleFixedRefund.getStorage()).totalPack).toEqual(2)
         expect((await redPacketMultipleFixedRefund.getStorage()).remainingPack).toEqual(1)
 
         let bobBalanceAfter = await bob.getBalance()
         console.log(`bobBalanceAfter ${fromNano(bobBalanceAfter)}`)
+        console.log(`bobBalanceAfter - bobBalanceBefore ${fromNano(bobBalanceAfter - bobBalanceBefore)}`)
         //fwd会耗费掉一点fwd_fee
-        expect(toNano(25) - (bobBalanceAfter - bobBalanceBefore)).toBeLessThan(toNano(0.001))
+        expect(toNano(25) - (bobBalanceAfter - bobBalanceBefore)).toBeLessThan(toNano(0.2))
 
         let report = Report.parseTransactions(txResult.transactions, router.address);
         expect(report.length).toEqual(1)
         expect(report[0].op).toEqual(`refund`)
         expect(bob.address.equals((report[0] as ReportRefund).recipient)).toBeTruthy()
         expect((report[0] as ReportRefund).redPacketIndex).toEqual(3n)
+    })
+
+
+    it('carlos create jetton pocket multiple specific', async () => {
+
+        console.log(`=============================================carlos create jetton pocket multiple specific=============================================`)
+
+        let createTxFee = await router.getRouterCreateTxFee();
+        console.log(`createTxFee ${fromNano(createTxFee)}`)
+
+        let {body, tonAmount} = JettonWalletWrapper.buildTransfer(
+            {
+                queryId: queryId++,
+                jettonAmount: toNano(10),
+                toOwner: router.address,
+                responseAddress: carlos.address,
+                forwardTonAmount: createTxFee,
+                forwardPayload: RouterWrapper.buildCreatePayload({
+                    createParam: Params.composeCreateParamSigned(
+                        {
+                            packetData: {
+                                op: "multipleSpecific",
+                                totalPack: 2,
+                                deadline: 1730779273,
+                            },
+                            uid: 5623905n,
+                            allowedJettonUserWallet: jettonWalletRouter.address,
+                            keyPair: serverKeyPair
+                        }
+                    )
+                }),
+            }
+        );
+
+        let txResult = await jettonWalletCarlos.sendTx(
+            carlos.getSender(),
+            tonAmount,
+            body
+        );
+        expect(txResult.transactions).not.toHaveTransaction({
+            success: false,
+        });
+
+        let redPacketAddress = await router.getRedPacket({redPacketIndex: 4})
+        redPacketMultipleSpecific = await blockchain.openContract(RedPacketWrapper.createFromAddress(redPacketAddress))
+        expect((await redPacketMultipleSpecific.getState()).state.type).toEqual(`active`)
+        expect((await redPacketMultipleSpecific.getStorage()).state).toEqual(RedPacketWrapper.State.normal)
+        expect((await redPacketMultipleSpecific.getStorage()).packetType).toEqual(Params.PacketTypeOp[`multipleSpecific`])
+        expect((await redPacketMultipleSpecific.getStorage()).totalSupply).toEqual(toNano(10))
+        expect((await redPacketMultipleSpecific.getStorage()).totalPack).toEqual(2)
+        expect((await redPacketMultipleSpecific.getStorage()).remainingPack).toEqual(2)
+
+        expect((await jettonWalletRouter.getWalletData())?.balance).toEqual(toNano(10))
+    })
+
+    it('carlos close redPacket multiple specific', async () => {
+
+        console.log(`=============================================carlos close redPacket multiple specific=============================================`)
+
+        let closeTxFee = await router.getRouterCloseTxFee();
+        console.log(`closeTxFee ${fromNano(closeTxFee)}`)
+
+
+        let carlosBalanceBefore = await jettonWalletCarlos.getJettonBalance()
+        console.log(`carlosBalanceBefore ${fromNano(carlosBalanceBefore)}`)
+
+        //carlos close, close的时候只取走4个, 留6个在合约里
+        let body = RouterWrapper.buildClose(
+            {
+                redPacketIndex: 4,
+                uid: 5134534n,
+                redPacketCloseServer: beginCell().storeUint(toNano(4n), 256).endCell(),
+                queryId: queryId++,
+                keyPair: serverKeyPair,
+            }
+        );
+
+        let txResult = await router.sendTx(
+            carlos.getSender(),
+            closeTxFee,
+            body
+        );
+        expect(txResult.transactions).not.toHaveTransaction({
+            success: false,
+        });
+        expect((await redPacketMultipleSpecific.getStorage()).state).toEqual(RedPacketWrapper.State.refundButNotFinished)
+        expect((await redPacketMultipleSpecific.getStorage()).remainingSupply).toEqual(toNano(6n))
+        expect((await redPacketMultipleSpecific.getStorage()).remainingPack).toEqual(2)
+
+        let carlosBalanceAfter = await jettonWalletCarlos.getJettonBalance()
+        console.log(`carlosBalanceAfter ${fromNano(carlosBalanceAfter)}`)
+
+        expect(carlosBalanceAfter - carlosBalanceBefore).toEqual(toNano(4n))
+    })
+
+    it('server on behalf of alice claim redPacket multiple specific after refunded', async () => {
+
+        console.log(`=============================================server on behalf of alice claim redPacket multiple specific after refunded=============================================`)
+
+        let claimTxFee = await router.getRouterClaimTxFee();
+        console.log(`claimTxFee ${fromNano(claimTxFee)}`)
+
+        let aliceBalanceBefore = await jettonWalletAlice.getJettonBalance()
+        console.log(`aliceBalanceBefore ${fromNano(aliceBalanceBefore)}`)
+
+        //第一次给alice取走,但是还没有取完
+        let body = RouterWrapper.buildClaim(
+            {
+                recipient: alice.address,
+                redPacketIndex: 4,
+                queryId: queryId++,
+                uid: 25140123n,
+                //把剩余的6个全部claim完
+                redPacketClaimServer: beginCell().storeUint(toNano(6n), 256).endCell()
+            }
+        );
+
+        let txResult = await router.sendTx(
+            server.getSender(),
+            claimTxFee,
+            body
+        );
+        expect(txResult.transactions).not.toHaveTransaction({
+            success: false,
+        });
+        expect((await redPacketMultipleSpecific.getStorage()).state).toEqual(RedPacketWrapper.State.refund)
+        expect((await redPacketMultipleSpecific.getStorage()).remainingSupply).toEqual(0n)
+        expect((await redPacketMultipleSpecific.getStorage()).totalPack).toEqual(2)
+        expect((await redPacketMultipleSpecific.getStorage()).remainingPack).toEqual(1)
+
+
+        let aliceBalanceAfter = await jettonWalletAlice.getJettonBalance()
+        console.log(`aliceBalanceAfter ${fromNano(aliceBalanceAfter)}`)
+        expect(aliceBalanceAfter - aliceBalanceBefore).toEqual(toNano(6n))
+
     })
 
     async function getBalance(addr: Address) {

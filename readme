@@ -11,3 +11,10 @@ Router ----> RedPacket          op::red_packet::claim(red_packet::Claim)
 RedPacket ----> Router          op::router::withdraw(router::Withdraw)
 Router ----> Jetton Wallet      op::jetton::transfer
 Router ----> Reporter           op::report::report_claim
+
+红包退款
+User Wallet ----> Router        op::router::close(router::Close)
+Router ----> RedPacket          op::red_packet::close(red_packet::Close)
+RedPacket ----> Router          op::router::refund(router::Refund)
+Router ----> Jetton Wallet      op::jetton::transfer
+Router ----> Reporter           op::report::report_refund

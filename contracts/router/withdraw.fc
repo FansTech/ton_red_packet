@@ -7,6 +7,7 @@
 #include "report.fc";
 
 () @withdraw(
+int uid:u64,
 slice token:addr,
 int amount:u256,
 slice recipient:addr,
@@ -18,7 +19,7 @@ int red_packet_index:u64
     send_jetton(
         query_id:u64,
         recipient:addr,
-        _server0:addr, ;;just return excess ton to server0
+        _server:addr, ;;just return excess ton to server
         amount:u256,
         token:addr,
         TRANSFER_JETTON_FEE + value_remaining,
@@ -31,6 +32,7 @@ int red_packet_index:u64
         op::report::report_withdraw,
         query_id:u64,
         router::Report_withdraw::se(
+            uid:u64,
             token:addr,
             amount:u256,
             recipient:addr,

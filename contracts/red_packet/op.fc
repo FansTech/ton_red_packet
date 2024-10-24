@@ -8,10 +8,12 @@ const int op::red_packet::close = "op::red_packet::close"c; ;;6909ff65 176226288
 const int state::red_packet::initializing = 0;
 const int state::red_packet::normal = 1;
 const int state::red_packet::finished = 2;
-const int state::red_packet::refund = 3;
+const int state::red_packet::refunded = 3;
+const int state::red_packet::refunded_but_not_finished = 4; ;;已经接到了refund请求,但是还有余钱
 
 const int type::red_packet::unknown = 0;
 const int type::red_packet::single = 1;
 const int type::red_packet::multiple_fixed = 2;
 const int type::red_packet::multiple_random = 3;
+const int type::red_packet::multiple_specific = 4;
 

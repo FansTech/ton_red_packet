@@ -4,25 +4,47 @@
 
 #include "../router/export.fc";
 
+#include "request.fc";
 #include "storage1.fc";
 
-() @close()
+() @close(
+int uid:u64,
+slice user_caller:addr,
+cell red_packet::Close_server:cell
+)
 impure inline_ref {
 
     int value_remaining = fee::red_packet::close(my_balance:coin, msg_value:coin);
 
+    throw_unless(312, equal_slices(
+        user_caller:addr,
+        _creator:addr
+    ));
 
+    int now:u32 = now();
     int refund_amount:u256 = 0;
+
     if (_packet_type:u8 == type::red_packet::single) {
 
         (
             int total_supply:u256,
-            int remaining_supply:u256
+            int remaining_supply:u256,
+            int deadline:u32
         ) = @Single_data::de(_packet_data:cell);
 
         throw_unless(305, total_supply:u256 == remaining_supply:u256);
+        ;; throw_unless(311, deadline:u32 <= now:u32);
 
         refund_amount:u256 = remaining_supply:u256;
+
+        remaining_supply:u256 = 0;
+        _packet_data:cell = @Single_data::se(
+            total_supply:u256,
+            remaining_supply:u256,
+            deadline:u32
+        );
+
+        _state:u8 = state::red_packet::refunded;
 
     }
     if (_packet_type:u8 == type::red_packet::multiple_fixed) {
@@ -31,13 +53,26 @@ impure inline_ref {
             int total_supply:u256,
             int remaining_supply:u256,
             int total_pack:u16,
-            int remaining_pack:u16
+            int remaining_pack:u16,
+            int deadline:u32
         ) = @Multiple_fix_data::de(_packet_data:cell);
 
         throw_unless(306, 0 < remaining_supply:u256);
         throw_unless(307, 0 < remaining_pack:u16);
+        ;; throw_unless(311, deadline:u32 <= now:u32);
 
         refund_amount:u256 = remaining_supply:u256;
+
+        remaining_supply:u256 = 0;
+        _packet_data:cell = @Multiple_fix_data::se(
+            total_supply:u256,
+            remaining_supply:u256,
+            total_pack:u16,
+            remaining_pack:u16,
+            deadline:u32
+        );
+
+        _state:u8 = state::red_packet::refunded;
 
     }
     if (_packet_type:u8 == type::red_packet::multiple_random) {
@@ -48,15 +83,64 @@ impure inline_ref {
             ;;remaining_supply:u256里
             int remaining_supply:u256,
             int total_pack:u16,
-            int remaining_pack:u16
+            int remaining_pack:u16,
+            int deadline:u32
         ) = @Multiple_random_data::de(_packet_data:cell);
 
         throw_unless(308, 0 < remaining_pack:u16);
+        ;; throw_unless(311, deadline:u32 <= now:u32);
 
         refund_amount:u256 = remaining_supply:u256;
-    }
 
-    _state:u8 = state::red_packet::refund;
+        remaining_supply:u256 = 0;
+        _packet_data:cell = @Multiple_random_data::se(
+            total_supply:u256,
+            remaining_supply:u256,
+            total_pack:u16,
+            remaining_pack:u16,
+            deadline:u32
+        );
+
+        _state:u8 = state::red_packet::refunded;
+
+    }
+    if (_packet_type:u8 == type::red_packet::multiple_specific) {
+
+        (
+            int total_supply:u256,
+            ;;需要在一开始留出total_pack:u16个coin,保证每人至少分到1个
+            ;;remaining_supply:u256里
+            int remaining_supply:u256,
+            int total_pack:u16,
+            int remaining_pack:u16,
+            int deadline:u32
+        ) = @Multiple_specific_data::de(_packet_data:cell);
+
+        throw_unless(308, 0 < remaining_pack:u16);
+        ;; throw_unless(311, deadline:u32 <= now:u32);
+
+        (
+            refund_amount:u256
+        ) = red_packet::Close_server::de(red_packet::Close_server:cell);
+
+        throw_unless(317, refund_amount:u256 < remaining_supply:u256);
+
+        remaining_supply:u256 -= refund_amount:u256;
+        _packet_data:cell = @Multiple_specific_data::se(
+            total_supply:u256,
+            remaining_supply:u256,
+            total_pack:u16,
+            remaining_pack:u16,
+            deadline:u32
+        );
+
+        if (remaining_supply:u256 == 0) {
+            _state:u8 = state::red_packet::refunded;
+
+        } else {
+            _state:u8 = state::red_packet::refunded_but_not_finished;
+        }
+    }
 
     ;;ask router to send token
     send_message_ref(
@@ -65,9 +149,10 @@ impure inline_ref {
         op::router::refund,
         query_id:u64,
         router::Refund::se(
+            uid:u64,
             _token:addr,
             refund_amount:u256,
-            _create:addr,
+            _creator:addr,
             _red_packet_index:u64
         ),
         PAID_EXTERNALLY,

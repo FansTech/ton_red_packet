@@ -8,11 +8,12 @@
 #include "report.fc";
 
 () @create(
+int uid:u64,
 int packet_type:u8,
 int amount:u256,
 slice token:addr,
-slice creater:addr,
-cell red_packet::Init:cell
+slice creator:addr,
+cell red_packet::Init_data:cell
 ) impure inline_ref {
 
     int value_remaining = fee::router::create(my_balance:coin, msg_value:coin);
@@ -46,11 +47,12 @@ cell red_packet::Init:cell
         op::red_packet::init,
         query_id:u64,
         red_packet::Init::se(
+            uid:u64,
             packet_type:u8,
             token:addr,
             amount:u256,
-            creater:addr,
-            red_packet::Init:cell
+            creator:addr,
+            red_packet::Init_data:cell
         ),
         PAID_EXTERNALLY,
         TRUE:u1,

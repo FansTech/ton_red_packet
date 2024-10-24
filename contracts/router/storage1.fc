@@ -2,6 +2,7 @@
 #include "../lib/export.fc";
 
 #include "op.fc";
+#include "../imports/stdlib_ext.fc";
 
 const int router::storage_version = 1;
 
@@ -19,9 +20,9 @@ global slice _reporter:addr;
 global cell _red_packet_base_code:cell;
 global cell _red_packet_deployment:cell;
 
-global slice _server0:addr;
-global slice _server1:addr;
-global slice _server2:addr;
+;;分别记录,不然需要向server wallet查询public key,太繁琐
+global int _server_public_key:u256;
+global slice _server:addr;
 
 ;;================temp===================
 global slice sender:addr;
@@ -66,9 +67,8 @@ global int msg_value:coin;
                 .store_ref(empty:cell) ;;_red_packet_deployment:cell
                 .store_ref(
                     begin_cell()
-                        .store_slice(address_zero);;server0
-                        .store_slice(address_zero);;server1
-                        .store_slice(address_zero);;server2
+                        .store_uint(0, 256);;server public key
+                        .store_slice(address_zero);;server addr
                         .end_cell()
                 )
                 .end_cell(),
@@ -120,9 +120,8 @@ global int msg_value:coin;
     {
         slice data_sub3:slice = data_sub3:cell.begin_parse();
 
-        _server0:addr = data_sub3:slice~load_msg_addr();
-        _server1:addr = data_sub3:slice~load_msg_addr();
-        _server2:addr = data_sub3:slice~load_msg_addr();
+        _server_public_key:u256 = data_sub3:slice~load_uint(256);
+        _server:addr = data_sub3:slice~load_msg_addr();
 
         data_sub3:slice.end_parse();
     }
@@ -152,9 +151,8 @@ global int msg_value:coin;
                     .store_ref(_red_packet_deployment:cell)
                     .store_ref(
                         begin_cell()
-                            .store_slice(_server0:addr)
-                            .store_slice(_server1:addr)
-                            .store_slice(_server2:addr)
+                            .store_uint(_server_public_key:u256, 256)
+                            .store_slice(_server:addr)
                             .end_cell()
                     )
                     .end_cell()

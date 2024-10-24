@@ -8,7 +8,9 @@
 #include "report.fc";
 
 () @close(
-int red_packet_index:u64
+int uid:u64,
+int red_packet_index:u64,
+cell red_packet::Close_server:cell
 ) impure inline_ref {
 
     int value_remaining = fee::router::close(my_balance:coin, msg_value:coin);
@@ -25,7 +27,11 @@ int red_packet_index:u64
         red_packet_address,
         op::red_packet::close,
         query_id:u64,
-        red_packet::Close::se(),
+        red_packet::Close::se(
+            uid:u64,
+            sender:addr,
+            red_packet::Close_server:cell
+        ),
         PAID_EXTERNALLY,
         TRUE:u1,
         null()

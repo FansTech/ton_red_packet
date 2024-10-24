@@ -160,8 +160,5 @@ slice calculate_address(cell state_init) inline {
 
     slice ttt = ret.end_cell().begin_parse();
 
-    ~strdump("ttt");
-    ~dump(ttt);
-
     return ttt;
 }

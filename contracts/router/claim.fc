@@ -8,8 +8,10 @@
 #include "report.fc";
 
 () @claim(
+int uid:u64,
 slice recipient:addr,
-int red_packet_index:u64
+int red_packet_index:u64,
+cell red_packet::Claim_server:cell
 ) impure inline_ref {
 
     int value_remaining = fee::router::claim(my_balance:coin, msg_value:coin);
@@ -27,7 +29,9 @@ int red_packet_index:u64
         op::red_packet::claim,
         query_id:u64,
         red_packet::Claim::se(
-            recipient:addr
+            uid:u64,
+            recipient:addr,
+            red_packet::Claim_server:cell
         ),
         PAID_EXTERNALLY,
         TRUE:u1,

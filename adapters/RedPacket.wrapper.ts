@@ -6,6 +6,7 @@ export class RedPacketWrapper implements Contract {
         normal: 1,
         finished: 2,
         refund: 3,
+        refundButNotFinished: 4,
     };
 
     constructor(readonly address: Address, readonly init?: { code: Cell; data: Cell }) {
@@ -50,6 +51,9 @@ export class RedPacketWrapper implements Contract {
         let totalPack = res.stack.readNumber();
         let remainingPack = res.stack.readNumber();
 
+        let deadline = res.stack.readNumber();
+        let creator = res.stack.readAddress();
+
         return {
             router,
             redPacketIndex,
@@ -60,6 +64,9 @@ export class RedPacketWrapper implements Contract {
             remainingSupply,
             totalPack,
             remainingPack,
+
+            deadline,
+            creator,
         };
     }
 

@@ -8,7 +8,6 @@
 #include "request.fc";
 #include "op.fc";
 #include "getter_fee.fc";
-;; #include "getter_nft.fc";
 #include "getter_base.fc";
 #include "getter.fc";
 #include "deploy1.fc";
@@ -18,6 +17,7 @@
 #include "claim.fc";
 #include "close.fc";
 #include "refund.fc";
+#include "../imports/stdlib_ext.fc";
 
 () @init_procedure(
 cell params
@@ -34,9 +34,8 @@ cell params
         _reporter:addr,
         _red_packet_base_code:cell,
         _red_packet_deployment:cell,
-        _server0:addr,
-        _server1:addr,
-        _server2:addr
+        _server_public_key:u256,
+        _server:addr
     ) = router::Init::de(params);
 
     save_storage();
@@ -50,15 +49,42 @@ slice from_wallet:addr
 
     (
         int packet_type:u8,
-        cell red_packet::Init:cell
+        cell red_packet::Init_data:cell,
+        cell create_server_check:cell,
+        int uid:u64,
+        cell signature:cell
     ) = router::Create::de(params);
 
+    ;;校验
+    {
+        ;;校验签名
+        int result = check_signature(
+            cell_hash(
+                begin_cell()
+                ;;这里决定需要被签名保护的内容
+                    .store_ref(create_server_check:cell)
+                    .store_uint(uid:u64, 64)
+                    .end_cell()
+            ),
+            signature:cell.begin_parse(),
+            _server_public_key:u256
+        );
+        throw_unless(133, result == -1);
+
+        ;;校验入参
+        (
+            slice jetton_user_wallet:addr
+        ) = router::Create_check::de(create_server_check:cell);
+        throw_unless(140, equal_slices(sender:addr, jetton_user_wallet:addr));
+    }
+
     @create(
+        uid:u64,
         packet_type:u8,
         jetton_amount:u256,
         sender:addr, ;;jetton wallet of router
         from_wallet:addr,
-        red_packet::Init:cell
+        red_packet::Init_data:cell
     );
 
     save_storage();
@@ -71,6 +97,7 @@ cell params
 ) impure inline_ref {
 
     (
+        int uid:u64,
         int packet_type:u8,
         slice token:addr,
         int amount:u256,
@@ -78,6 +105,7 @@ cell params
     ) = router::Create_finished::de(params);
 
     @create_finished(
+        uid:u64,
         packet_type:u8,
         token:addr,
         amount:u256,
@@ -88,34 +116,26 @@ cell params
     return ();
 }
 
+;;服务器带领
 () @claim_procedure(
 cell params
 ) impure inline_ref {
 
     (
         slice recipient:addr,
-        int red_packet_index:u64
+        int red_packet_index:u64,
+        int uid:u64,
+        cell red_packet::Claim_server:cell
     ) = router::Claim::de(params);
 
     ;;check if it is the server
-    throw_unless(203,
-        equal_slices(
-            sender:addr,
-            _server0:addr
-        ) |
-        equal_slices(
-            sender:addr,
-            _server1:addr
-        ) |
-        equal_slices(
-            sender:addr,
-            _server2:addr
-        )
-    );
+    throw_unless(203, equal_slices(sender:addr, _server:addr));
 
     @claim(
+        uid:u64,
         recipient:addr,
-        red_packet_index:u64
+        red_packet_index:u64,
+        red_packet::Claim_server:cell
     );
 
     save_storage();
@@ -127,6 +147,7 @@ cell params
 ) impure inline_ref {
 
     (
+        int uid:u64,
         slice token:addr,
         int amount:u256,
         slice recipient:addr,
@@ -146,6 +167,7 @@ cell params
     );
 
     @withdraw(
+        uid:u64,
         token:addr,
         amount:u256,
         recipient:addr,
@@ -156,32 +178,39 @@ cell params
     return ();
 }
 
+;;用户发起
 () @close_procedure(
 cell params
 ) impure inline_ref {
 
     (
-        int red_packet_index:u64
+        int red_packet_index:u64,
+        int uid:u64,
+        cell red_packet::Close_server:cell,
+        cell signature:cell
     ) = router::Close::de(params);
 
-    ;;check if it is the server
-    throw_unless(205,
-        equal_slices(
-            sender:addr,
-            _server0:addr
-        ) |
-        equal_slices(
-            sender:addr,
-            _server1:addr
-        ) |
-        equal_slices(
-            sender:addr,
-            _server2:addr
-        )
-    );
+    ;;校验
+    {
+        ;;校验签名
+        int result = check_signature(
+            cell_hash(
+                begin_cell()
+                ;;这里决定需要被签名保护的内容
+                    .store_uint(uid:u64, 64)
+                    .store_ref(red_packet::Close_server:cell)
+                    .end_cell()
+            ),
+            signature:cell.begin_parse(),
+            _server_public_key:u256
+        );
+        throw_unless(133, result == -1);
+    }
 
     @close(
-        red_packet_index:u64
+        uid:u64,
+        red_packet_index:u64,
+        red_packet::Close_server:cell
     );
 
     save_storage();
@@ -194,6 +223,7 @@ cell params
 ) impure inline_ref {
 
     (
+        int uid:u64,
         slice token:addr,
         int amount:u256,
         slice recipient:addr,
@@ -213,6 +243,7 @@ cell params
     );
 
     @refund(
+        uid:u64,
         token:addr,
         amount:u256,
         recipient:addr,

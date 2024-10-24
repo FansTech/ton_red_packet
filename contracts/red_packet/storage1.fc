@@ -14,7 +14,7 @@ global int _red_packet_index:u64;
 global int _state:u8;
 global int _packet_type:u8;
 global slice _token:addr;
-global slice _create:addr;
+global slice _creator:addr;
 global cell _packet_data:cell;
 
 ;;================temp===================
@@ -26,20 +26,20 @@ global int msg_value:coin;
 ;;===========================================================================
 cell @Single_data::se(
 int total_supply:u256,
-int remaining_supply:u256
+int remaining_supply:u256,
+int deadline:u32
 ) impure {
-    ~strdump("@Single_data::se");
     return begin_cell()
         .store_uint(total_supply:u256, 256)
         .store_uint(remaining_supply:u256, 256)
+        .store_uint(deadline:u32, 32)
         .end_cell();
 }
 
-(int, int) @Single_data::de(cell input) impure {
-    ~strdump("@Single_data::de");
+(int, int, int) @Single_data::de(cell input) impure {
     slice s = input.begin_parse();
     return (
-        s~load_uint(256), s~load_uint(256)
+        s~load_uint(256), s~load_uint(256), s~load_uint(32)
     );
 }
 
@@ -48,22 +48,26 @@ cell @Multiple_fix_data::se(
 int total_supply:u256,
 int remaining_supply:u256,
 int total_pack:u16,
-int remaining_pack:u16
+int remaining_pack:u16,
+int deadline:u32
 ) impure {
-    ~strdump("@Multiple_fix_data::se");
     return begin_cell()
         .store_uint(total_supply:u256, 256)
         .store_uint(remaining_supply:u256, 256)
         .store_uint(total_pack:u16, 16)
         .store_uint(remaining_pack:u16, 16)
+        .store_uint(deadline:u32, 32)
         .end_cell();
 }
 
-(int, int, int, int) @Multiple_fix_data::de(cell input) impure {
-    ~strdump("@Multiple_fix_data::de");
+(
+    int, int, int, int,
+    int
+) @Multiple_fix_data::de(cell input) impure {
     slice s = input.begin_parse();
     return (
-        s~load_uint(256), s~load_uint(256), s~load_uint(16), s~load_uint(16)
+        s~load_uint(256), s~load_uint(256), s~load_uint(16), s~load_uint(16),
+        s~load_uint(32)
     );
 }
 
@@ -72,24 +76,57 @@ cell @Multiple_random_data::se(
 int total_supply:u256,
 int remaining_supply:u256,
 int total_pack:u16,
-int remaining_pack:u16
+int remaining_pack:u16,
+int deadline:u32
 ) impure {
-    ~strdump("@Multiple_random_data::se");
     return begin_cell()
         .store_uint(total_supply:u256, 256)
         .store_uint(remaining_supply:u256, 256)
         .store_uint(total_pack:u16, 16)
         .store_uint(remaining_pack:u16, 16)
+        .store_uint(deadline:u32, 32)
         .end_cell();
 }
 
-(int, int, int, int) @Multiple_random_data::de(cell input) impure {
-    ~strdump("@Multiple_random_data::de");
+(
+    int, int, int, int,
+    int
+) @Multiple_random_data::de(cell input) impure {
     slice s = input.begin_parse();
     return (
-        s~load_uint(256), s~load_uint(256), s~load_uint(16), s~load_uint(16)
+        s~load_uint(256), s~load_uint(256), s~load_uint(16), s~load_uint(16),
+        s~load_uint(32)
     );
 }
+
+;;===========================================================================
+cell @Multiple_specific_data::se(
+int total_supply:u256,
+int remaining_supply:u256,
+int total_pack:u16,
+int remaining_pack:u16,
+int deadline:u32
+) impure {
+    return begin_cell()
+        .store_uint(total_supply:u256, 256)
+        .store_uint(remaining_supply:u256, 256)
+        .store_uint(total_pack:u16, 16)
+        .store_uint(remaining_pack:u16, 16)
+        .store_uint(deadline:u32, 32)
+        .end_cell();
+}
+
+(
+    int, int, int, int,
+    int
+) @Multiple_specific_data::de(cell input) impure {
+    slice s = input.begin_parse();
+    return (
+        s~load_uint(256), s~load_uint(256), s~load_uint(16), s~load_uint(16),
+        s~load_uint(32)
+    );
+}
+
 ;;=========================================================================
 
 (cell, ()) storage_version_0->1?(cell data:cell) impure inline {
@@ -124,7 +161,7 @@ int remaining_pack:u16
                 .store_uint(state::red_packet::initializing, 8) ;;_state:u8
                 .store_uint(type::red_packet::unknown, 8)
                 .store_slice(address_zero) ;;token
-                .store_slice(address_zero) ;;creater
+                .store_slice(address_zero) ;;creator
                 .store_ref(
                     begin_cell() ;;empty packet_data:cell for initializing
                         .end_cell()
@@ -168,7 +205,7 @@ int remaining_pack:u16
     _state:u8 = data:slice~load_int(8);
     _packet_type:u8 = data:slice~load_int(8);
     _token:addr = data:slice~load_msg_addr();
-    _create:addr = data:slice~load_msg_addr();
+    _creator:addr = data:slice~load_msg_addr();
 
     _packet_data:cell = data:slice~load_ref();
 
@@ -193,7 +230,7 @@ int remaining_pack:u16
                     .store_uint(_state:u8, 8)
                     .store_uint(_packet_type:u8, 8)
                     .store_slice(_token:addr)
-                    .store_slice(_create:addr)
+                    .store_slice(_creator:addr)
                     .store_ref(_packet_data:cell)
                     .end_cell()
             )
