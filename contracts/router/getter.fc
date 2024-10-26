@@ -6,15 +6,13 @@
 #include "storage1.fc";
 
 (
-    int, slice, int, int,
-    slice, cell, cell, int,
-    slice
+    int, slice, int, slice,
+    cell, cell, int, slice
 ) get_storage() method_id {
     load_storage();
     return (
-        _ctx:u8, _router_admin:addr, _state:u8, _next_red_packet_index:u64,
-        _reporter:addr, _red_packet_base_code:cell, _red_packet_deployment:cell, _server_public_key:u256,
-        _server:addr
+        _ctx:u8, _router_admin:addr, _state:u8, _reporter:addr,
+        _red_packet_base_code:cell, _red_packet_deployment:cell, _server_public_key:u256, _server:addr
     );
 }
 

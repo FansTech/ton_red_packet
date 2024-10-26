@@ -8,12 +8,13 @@
 #include "report.fc";
 
 () @create(
+int red_packet_index:u64,
 int uid:u64,
 int packet_type:u8,
 int amount:u256,
 slice token:addr,
 slice creator:addr,
-cell red_packet::Init_data:cell
+cell red_packet_init_data:cell
 ) impure inline_ref {
 
     int value_remaining = fee::router::create(my_balance:coin, msg_value:coin);
@@ -22,12 +23,10 @@ cell red_packet::Init_data:cell
         _red_packet_base_code:cell,
         _code_manager_public_key:u256,
         my_address(),
-        _next_red_packet_index:u64
+        red_packet_index:u64
     );
 
     slice red_packet_address = calculate_address(red_packet_state_init:cell);
-    _next_red_packet_index:u64 += 1;
-
     send_message_ref(
         fee::red_packet::deploy::tx_fee(),
         red_packet_address,
@@ -52,7 +51,7 @@ cell red_packet::Init_data:cell
             token:addr,
             amount:u256,
             creator:addr,
-            red_packet::Init_data:cell
+            red_packet_init_data:cell
         ),
         PAID_EXTERNALLY,
         TRUE:u1,

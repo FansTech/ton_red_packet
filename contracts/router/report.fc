@@ -5,6 +5,8 @@ int uid:u64,
 int packet_type:u8,
 slice token:addr,
 int amount:u256,
+int packet_index:u64,
+slice creator:addr,
 cell red_packet_data:cell
 ) impure {
     return begin_cell()
@@ -12,6 +14,8 @@ cell red_packet_data:cell
         .store_uint(packet_type:u8, 8)
         .store_slice(token:addr)
         .store_uint(amount:u256, 256)
+        .store_uint(packet_index:u64, 64)
+        .store_slice(creator:addr)
         .store_ref(red_packet_data:cell)
         .end_cell();
 }

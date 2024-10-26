@@ -109,14 +109,14 @@ export class RouterWrapper implements Contract {
 
     static buildClose(opts: {
         redPacketIndex: number | bigint,
-        uid: bigint,
+        uid?: bigint,
         redPacketCloseServer: Cell,
         queryId: bigint,
         keyPair: KeyPair
     }) {
 
         let toSign = beginCell()
-            .storeUint(opts.uid, 64)
+            .storeUint(opts.uid ?? 0n, 64)
             .storeRef(opts.redPacketCloseServer)
             .endCell()
 
@@ -128,7 +128,7 @@ export class RouterWrapper implements Contract {
             .storeRef(
                 beginCell()
                     .storeUint(opts.redPacketIndex, 64)
-                    .storeUint(opts.uid, 64)
+                    .storeUint(opts.uid ?? 0n, 64)
                     .storeRef(opts.redPacketCloseServer)
                     .storeRef(
                         beginCell()
@@ -210,26 +210,22 @@ export class RouterWrapper implements Contract {
         let ctx = res.stack.readNumber();
         let routerAdmin = res.stack.readAddress();
         let state = res.stack.readNumber();
-        let nextRedPacketId = res.stack.readBigNumber();
-
         let reporter = res.stack.readAddress();
+
         let redPacketBaseCode = res.stack.readCell();
         let redPacketDeployment = res.stack.readCell();
         let serverPublicKey = res.stack.readBigNumber();
-
         let server = res.stack.readAddress();
 
         return {
             ctx,
             routerAdmin,
             state,
-            nextRedPacketId,
-
             reporter,
+
             redPacketBaseCode,
             redPacketDeployment,
             serverPublicKey,
-
             server,
         };
     }

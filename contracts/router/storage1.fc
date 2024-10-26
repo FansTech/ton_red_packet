@@ -14,7 +14,6 @@ global int _ctx:u8;
 global slice _router_admin:addr;
 ;;--
 global int _state:u8;
-global int _next_red_packet_index:u64;
 global slice _reporter:addr;
 
 global cell _red_packet_base_code:cell;
@@ -61,7 +60,6 @@ global int msg_value:coin;
                 .store_uint(_ctx:u8, 8)
                 .store_slice(_router_admin:addr)
                 .store_uint(state::router::initializing, 8) ;;_state:u8
-                .store_uint(0, 64) ;;_next_red_packet_index:u64
                 .store_slice(address_zero) ;;_reporter:add
                 .store_ref(empty:cell) ;;_red_packet_base_code:cell
                 .store_ref(empty:cell) ;;_red_packet_deployment:cell
@@ -110,7 +108,6 @@ global int msg_value:coin;
     _ctx:u8 = data:slice~load_uint(8);
     _router_admin:addr = data:slice~load_msg_addr();
     _state:u8 = data:slice~load_uint(8);
-    _next_red_packet_index:u64 = data:slice~load_uint(64);
     _reporter:addr = data:slice~load_msg_addr();
 
     _red_packet_base_code:cell = data:slice~load_ref();
@@ -145,7 +142,6 @@ global int msg_value:coin;
                     .store_uint(_ctx:u8, 8)
                     .store_slice(_router_admin:addr)
                     .store_uint(_state:u8, 8)
-                    .store_uint(_next_red_packet_index:u64, 64)
                     .store_slice(_reporter:addr)
                     .store_ref(_red_packet_base_code:cell)
                     .store_ref(_red_packet_deployment:cell)

@@ -11,6 +11,8 @@ export interface ReportCreate {
     packetType: number;
     token: Address;
     amount: bigint;
+    packetIndex: bigint,
+    creator: Address,
     redPacketDataRaw: Cell;
     redPacketData: RedPacketData;
 }
@@ -146,6 +148,9 @@ export class Report implements Contract {
         let packetType = cs.loadUint(8);
         let token = cs.loadAddress();
         let amount = cs.loadUintBig(256);
+        let packetIndex = cs.loadUintBig(64);
+        let creator = cs.loadAddress();
+
         let redPacketDataRaw = cs.loadRef();
         let redPacketData: RedPacketData | null = null
 
@@ -215,6 +220,8 @@ export class Report implements Contract {
             packetType: packetType,
             token: token,
             amount: amount,
+            packetIndex,
+            creator,
             redPacketDataRaw: redPacketDataRaw,
             redPacketData: redPacketData,
         }

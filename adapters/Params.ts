@@ -50,8 +50,13 @@ export class Params implements Contract {
     public static composeCreateParamSigned(
         opts: {
             packetData: PacketType,
-            uid: bigint,
-            allowedJettonUserWallet: Address,
+            uid: bigint | number,
+            packetIndex: bigint | number,
+            serverCheck: {
+                jettonUserWallet: Address,
+                router: Address,
+                redPacketSupply: bigint | number,
+            }
             keyPair: KeyPair
         }
     ) {
@@ -59,8 +64,6 @@ export class Params implements Contract {
 
         let packetTypeOp = Params.PacketTypeOp[opts.packetData.op]
 
-        let param = beginCell()
-            .storeUint(packetTypeOp, 8);
 
         let redPacketInit = null;
         if (opts.packetData.op == `single`) {
@@ -90,27 +93,30 @@ export class Params implements Contract {
             throw new Error(`unknown packet type`)
         }
 
-        param = param.storeRef(redPacketInit)
-            .storeRef(
-                beginCell()
-                    .storeAddress(opts.allowedJettonUserWallet)
-                    .endCell()
-            )
+
+        let createServerCheck = beginCell()
+            .storeAddress(opts.serverCheck.jettonUserWallet)
+            .storeAddress(opts.serverCheck.router)
+            .storeUint(opts.packetIndex, 64)
+            .storeUint(packetTypeOp, 8)
+            .storeUint(opts.serverCheck.redPacketSupply, 256)
+            .storeUint(opts.packetData.op === "single" ? 1 : opts.packetData.totalPack, 16)
+            .storeUint(opts.packetData.deadline, 32)
             .storeUint(opts.uid, 64)
 
 
         let toSign = beginCell()
-            .storeRef(
-                beginCell()
-                    .storeAddress(opts.allowedJettonUserWallet)
-                    .endCell()
-            )
-            .storeUint(opts.uid, 64)
+            .storeRef(createServerCheck)
             .endCell()
 
         let sig = signCell(opts.keyPair, toSign)
 
-        return param
+        return beginCell()
+            .storeUint(opts.packetIndex, 64)
+            .storeUint(packetTypeOp, 8)
+            .storeRef(redPacketInit)
+            .storeRef(createServerCheck)
+            .storeUint(opts.uid, 64)
             .storeRef(
                 beginCell()
                     .storeBuffer(sig)

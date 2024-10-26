@@ -101,6 +101,8 @@ cell red_packet_init_data:cell
             packet_type:u8,
             _token:addr,
             amount:u256,
+            _red_packet_index:u64,
+            creator:addr,
             _packet_data:cell
         ),
         PAID_EXTERNALLY,

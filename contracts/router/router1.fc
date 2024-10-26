@@ -28,8 +28,6 @@ cell params
 
     _state:u8 = state::router::normal;
 
-    _next_red_packet_index:u64 = 0;
-
     (
         _reporter:addr,
         _red_packet_base_code:cell,
@@ -48,8 +46,9 @@ slice from_wallet:addr
 ) impure inline_ref {
 
     (
+        int packet_index:u64,
         int packet_type:u8,
-        cell red_packet::Init_data:cell,
+        cell red_packet_init_data:cell,
         cell create_server_check:cell,
         int uid:u64,
         cell signature:cell
@@ -63,7 +62,6 @@ slice from_wallet:addr
                 begin_cell()
                 ;;这里决定需要被签名保护的内容
                     .store_ref(create_server_check:cell)
-                    .store_uint(uid:u64, 64)
                     .end_cell()
             ),
             signature:cell.begin_parse(),
@@ -73,18 +71,74 @@ slice from_wallet:addr
 
         ;;校验入参
         (
-            slice jetton_user_wallet:addr
+            slice jetton_user_wallet:addr,
+            slice router:addr,
+            int red_packet_index:u64,
+            int red_packet_type:u8,
+            int red_packet_supply::u256,
+            int red_packet_pack:u16,
+            int red_packet_deadline:u32,
+            int uid_to_check:u64
         ) = router::Create_check::de(create_server_check:cell);
+        throw_unless(139, uid:u64 == uid_to_check:u64);
         throw_unless(140, equal_slices(sender:addr, jetton_user_wallet:addr));
+        throw_unless(141, equal_slices(router:addr, my_address()));
+        throw_unless(142, red_packet_index:u64 == packet_index:u64);
+        throw_unless(143, red_packet_type:u8 == packet_type:u8);
+        throw_unless(144, red_packet_supply::u256 == jetton_amount:u256);
+
+        if (packet_type:u8 == type::red_packet::single) {
+
+            (int deadline:u32) = red_packet::Init_single::de(red_packet_init_data:cell);
+
+            throw_unless(145, red_packet_pack:u16 == 1);
+            throw_unless(146, red_packet_deadline:u32 == deadline:u32);
+
+        }
+        if (packet_type:u8 == type::red_packet::multiple_fixed) {
+
+            (
+                int total_pack:u16,
+                int deadline:u32
+            ) = red_packet::Init_multiple_fix::de(red_packet_init_data:cell);
+
+            throw_unless(145, red_packet_pack:u16 == total_pack:u16);
+            throw_unless(146, red_packet_deadline:u32 == deadline:u32);
+
+        }
+        if (packet_type:u8 == type::red_packet::multiple_random) {
+
+            (
+                int total_pack:u16,
+                int deadline:u32
+            ) = red_packet::Init_multiple_random::de(red_packet_init_data:cell);
+
+            throw_unless(145, red_packet_pack:u16 == total_pack:u16);
+            throw_unless(146, red_packet_deadline:u32 == deadline:u32);
+
+        }
+        if (packet_type:u8 == type::red_packet::multiple_specific) {
+
+            (
+                int total_pack:u16,
+                int deadline:u32
+            ) = red_packet::Init_multiple_specific::de(red_packet_init_data:cell);
+
+            throw_unless(145, red_packet_pack:u16 == total_pack:u16);
+            throw_unless(146, red_packet_deadline:u32 == deadline:u32);
+
+        }
+
     }
 
     @create(
+        packet_index:u64,
         uid:u64,
         packet_type:u8,
         jetton_amount:u256,
         sender:addr, ;;jetton wallet of router
         from_wallet:addr,
-        red_packet::Init_data:cell
+        red_packet_init_data:cell
     );
 
     save_storage();
@@ -101,6 +155,8 @@ cell params
         int packet_type:u8,
         slice token:addr,
         int amount:u256,
+        int packet_index:u64,
+        slice creator:addr,
         cell red_packet_data:cell
     ) = router::Create_finished::de(params);
 
@@ -109,6 +165,8 @@ cell params
         packet_type:u8,
         token:addr,
         amount:u256,
+        packet_index:u64,
+        creator:addr,
         red_packet_data:cell
     );
 

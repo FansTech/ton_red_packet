@@ -37,6 +37,7 @@ slice server:addr
 ;;===============================================
 ;;由前端se,传入transfer_notification forward_payload
 cell router::Create::se(
+int packet_index:u64,
 int packet_type:u8,
 cell red_packet::Init:cell,
 cell create_server_check:cell,
@@ -44,6 +45,7 @@ int uid:u64,
 cell signature:cell
 ) impure {
     return begin_cell()
+        .store_uint(packet_index:u64, 64)
         .store_uint(packet_type:u8, 8)
         .store_ref(red_packet::Init:cell)
         .store_ref(create_server_check:cell)
@@ -53,30 +55,48 @@ cell signature:cell
 }
 
 (
-    int, cell, cell, int,
-    cell
+    int, int, cell, cell,
+    int, cell
 ) router::Create::de(cell input) impure {
     slice s = input.begin_parse();
     return (
-        s~load_uint(8), s~load_ref(), s~load_ref(), s~load_uint(64),
-        s~load_ref()
+        s~load_uint(64), s~load_uint(8), s~load_ref(), s~load_ref(),
+        s~load_uint(64), s~load_ref()
     );
 }
 
 ;;===============================================
 
 cell router::Create_check::se(
-slice jetton_user_wallet:addr
+slice jetton_user_wallet:addr,
+slice router:addr,
+int red_packet_index:u64,
+int red_packet_type:u8,
+int red_packet_supply::u256,
+int red_packet_pack:u16,
+int red_packet_deadline:u32,
+int uid:u64
 ) impure {
     return begin_cell()
         .store_slice(jetton_user_wallet:addr)
+        .store_slice(router:addr)
+        .store_uint(red_packet_index:u64, 64)
+        .store_uint(red_packet_type:u8, 8)
+        .store_uint(red_packet_supply::u256, 256)
+        .store_uint(red_packet_pack:u16, 16)
+        .store_uint(red_packet_deadline:u32, 32)
+        .store_uint(uid:u64, 64)
         .end_cell();
 }
 
-(slice) router::Create_check::de(cell input) impure {
+(
+    slice, slice, int, int,
+    int, int, int, int
+) router::Create_check::de(cell input) impure {
     slice s = input.begin_parse();
     return (
-        s~load_msg_addr()
+        s~load_msg_addr(), s~load_msg_addr(), s~load_uint(64), s~load_uint(8),
+        s~load_uint(256), s~load_uint(16), s~load_uint(32), s~load_uint(64)
     );
 }
 
@@ -86,6 +106,8 @@ int uid:u64,
 int packet_type:u8,
 slice token:addr,
 int amount:u256,
+int packet_index:u64,
+slice creator:addr,
 cell red_packet_data:cell
 ) impure {
     return begin_cell()
@@ -93,18 +115,20 @@ cell red_packet_data:cell
         .store_uint(packet_type:u8, 8)
         .store_slice(token:addr)
         .store_uint(amount:u256, 256)
+        .store_uint(packet_index:u64, 64)
+        .store_slice(creator:addr)
         .store_ref(red_packet_data:cell)
         .end_cell();
 }
 
 (
     int, int, slice, int,
-    cell
+    int, slice, cell
 ) router::Create_finished::de(cell input) impure {
     slice s = input.begin_parse();
     return (
         s~load_uint(64), s~load_uint(8), s~load_msg_addr(), s~load_uint(256),
-        s~load_ref()
+        s~load_uint(64), s~load_msg_addr(), s~load_ref()
     );
 }
 

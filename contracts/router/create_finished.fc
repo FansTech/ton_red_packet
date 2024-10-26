@@ -12,6 +12,8 @@ int uid:u64,
 int packet_type:u8,
 slice token:addr,
 int amount:u256,
+int packet_index:u64,
+slice creator:addr,
 cell red_packet_data:cell
 ) impure inline_ref {
 
@@ -30,6 +32,8 @@ cell red_packet_data:cell
             packet_type:u8,
             token:addr,
             amount:u256,
+            packet_index:u64,
+            creator:addr,
             red_packet_data:cell
         ),
         NORMAL,

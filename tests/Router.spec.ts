@@ -59,6 +59,7 @@ describe('Router', () => {
     let redPacketMultipleSpecific: SandboxContract<RedPacketWrapper>
 
     let queryId = 1n;
+    let packetIndex = 0n;
 
     beforeAll(async () => {
         try {
@@ -303,7 +304,12 @@ describe('Router', () => {
                                 deadline: 1730779273,
                             },
                             uid: 1234n,
-                            allowedJettonUserWallet: wTonWalletRouter.address,
+                            packetIndex: packetIndex++,
+                            serverCheck: {
+                                jettonUserWallet: wTonWalletRouter.address,
+                                router: router.address,
+                                redPacketSupply: toNano(10)
+                            },
                             keyPair: serverKeyPair
                         }
                     )
@@ -335,6 +341,7 @@ describe('Router', () => {
         expect(report[0].op).toEqual(`create`)
         expect((report[0] as ReportCreate).packetType).toEqual(Params.PacketTypeOp.single)
         expect((report[0] as ReportCreate).redPacketData.packetType).toEqual(`single`)
+        expect((report[0] as ReportCreate).packetIndex).toEqual(0n)
     })
 
     it('server on behalf of bob claim redPacket single', async () => {
@@ -408,7 +415,12 @@ describe('Router', () => {
                                 deadline: 1730779273,
                             },
                             uid: 51234123n,
-                            allowedJettonUserWallet: wTonWalletRouter.address,
+                            packetIndex: packetIndex++,
+                            serverCheck: {
+                                jettonUserWallet: wTonWalletRouter.address,
+                                router: router.address,
+                                redPacketSupply: toNano(4)
+                            },
                             keyPair: serverKeyPair
                         }
                     ),
@@ -534,7 +546,12 @@ describe('Router', () => {
                                 deadline: 1730779273,
                             },
                             uid: 5623905n,
-                            allowedJettonUserWallet: jettonWalletRouter.address,
+                            packetIndex: packetIndex++,
+                            serverCheck: {
+                                jettonUserWallet: jettonWalletRouter.address,
+                                router: router.address,
+                                redPacketSupply: toNano(20)
+                            },
                             keyPair: serverKeyPair
                         }
                     )
@@ -672,7 +689,12 @@ describe('Router', () => {
                                 deadline: 1730779273,
                             },
                             uid: 3126123405n,
-                            allowedJettonUserWallet: wTonWalletRouter.address,
+                            packetIndex: packetIndex++,
+                            serverCheck: {
+                                jettonUserWallet: wTonWalletRouter.address,
+                                router: router.address,
+                                redPacketSupply: toNano(50)
+                            },
                             keyPair: serverKeyPair
                         })
                 }),
@@ -759,7 +781,6 @@ describe('Router', () => {
         let body = RouterWrapper.buildClose(
             {
                 redPacketIndex: 3,
-                uid: 129412n,
                 redPacketCloseServer: beginCell().endCell(),
                 keyPair: serverKeyPair,
                 queryId: queryId++,
@@ -815,8 +836,13 @@ describe('Router', () => {
                                 totalPack: 2,
                                 deadline: 1730779273,
                             },
-                            uid: 5623905n,
-                            allowedJettonUserWallet: jettonWalletRouter.address,
+                            uid: 532314905n,
+                            packetIndex: packetIndex++,
+                            serverCheck: {
+                                jettonUserWallet: jettonWalletRouter.address,
+                                router: router.address,
+                                redPacketSupply: toNano(10)
+                            },
                             keyPair: serverKeyPair
                         }
                     )
@@ -860,7 +886,6 @@ describe('Router', () => {
         let body = RouterWrapper.buildClose(
             {
                 redPacketIndex: 4,
-                uid: 5134534n,
                 redPacketCloseServer: beginCell().storeUint(toNano(4n), 256).endCell(),
                 queryId: queryId++,
                 keyPair: serverKeyPair,
