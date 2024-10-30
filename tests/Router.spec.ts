@@ -12,7 +12,7 @@ import {addressHash, addressZero, buildCodeDeployment, signCell,} from "../scrip
 import {Params} from "../adapters/Params";
 import {KeyPair} from "@ton/crypto/dist/primitives/nacl";
 import {mnemonicToPrivateKey, sha256} from "@ton/crypto";
-import {Report, ReportCreate, ReportRefund, ReportWithdraw} from "../adapters/Report";
+import {RedPacketMultipleFixed, Report, ReportCreate, ReportRefund, ReportWithdraw} from "../adapters/Report";
 
 describe('Router', () => {
 
@@ -399,6 +399,8 @@ describe('Router', () => {
         let createTxFee = await router.getRouterCreateTxFee();
         console.log(`createTxFee ${fromNano(createTxFee)}`)
 
+        const uid = 51234123n;
+        const deadline = 1730779273;
         let {body, tonAmount} = WTonWalletWrapper.buildTransfer(
             {
                 queryId: queryId++,
@@ -412,9 +414,9 @@ describe('Router', () => {
                             packetData: {
                                 op: "multipleFixed",
                                 totalPack: 2,
-                                deadline: 1730779273,
+                                deadline,
                             },
-                            uid: 51234123n,
+                            uid,
                             packetIndex: packetIndex++,
                             serverCheck: {
                                 jettonUserWallet: wTonWalletRouter.address,
@@ -438,7 +440,8 @@ describe('Router', () => {
             success: false,
         });
 
-        let redPacketAddress = await router.getRedPacket({redPacketIndex: 1})
+        const redPacketIndex = 1n;
+        let redPacketAddress = await router.getRedPacket({redPacketIndex})
         redPacketMultipleFixed = await blockchain.openContract(RedPacketWrapper.createFromAddress(redPacketAddress))
         expect((await redPacketMultipleFixed.getState()).state.type).toEqual(`active`)
         expect((await redPacketMultipleFixed.getStorage()).state).toEqual(RedPacketWrapper.State.normal)
@@ -447,8 +450,25 @@ describe('Router', () => {
         expect((await redPacketMultipleFixed.getStorage()).totalPack).toEqual(2)
         expect((await redPacketMultipleFixed.getStorage()).remainingPack).toEqual(2)
 
+        let report = Report.parseTransactions(txResult.transactions, router.address);
+        expect(report.length).toEqual(1);
+        expect(report[0].op).toEqual(`create`)
+        let reportCreate = report[0] as ReportCreate;
+        expect(reportCreate.uid).toEqual(uid);
+        expect(reportCreate.packetType).toEqual(Params.PacketTypeOp[`multipleFixed`]);
+        expect(reportCreate.token.equals(wTonWalletRouter.address)).toEqual(true);
+        expect(reportCreate.amount).toEqual(toNano(4));
+        expect(reportCreate.packetIndex).toEqual(redPacketIndex);
+        expect(reportCreate.redPacketData.packetType).toEqual(`multipleFixed`);
+        expect(reportCreate.redPacketData.totalSupply).toEqual(toNano(4));
+        expect(reportCreate.redPacketData.remainingSupply).toEqual(toNano(4));
+        expect((reportCreate.redPacketData as RedPacketMultipleFixed).totalPack).toEqual(2);
+        expect((reportCreate.redPacketData as RedPacketMultipleFixed).remainingPack).toEqual(2);
+        expect((reportCreate.redPacketData as RedPacketMultipleFixed).deadline).toEqual(deadline);
+
         //初始化时给到了1Ton,收到10Ton+一点gasFee,又取走了,消耗了一点gas,有收到了4ton
         expect((await wTonWalletRouter.getWalletData())?.balance).toBeGreaterThan(toNano(4) + toNano(1))
+
     })
 
     it('server on behalf of alice and carlos claim redPacket multiple fixed', async () => {

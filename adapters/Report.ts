@@ -47,6 +47,7 @@ export interface RedPacketSingle {
     packetType: `single`,
     totalSupply: bigint,
     remainingSupply: bigint,
+    deadline: number;
 }
 
 export interface RedPacketMultipleFixed {
@@ -55,6 +56,7 @@ export interface RedPacketMultipleFixed {
     remainingSupply: bigint,
     totalPack: number,
     remainingPack: number,
+    deadline: number;
 }
 
 export interface RedPacketMultipleRandom {
@@ -63,6 +65,7 @@ export interface RedPacketMultipleRandom {
     remainingSupply: bigint,
     totalPack: number,
     remainingPack: number,
+    deadline: number;
 }
 
 export interface RedPacketMultipleSpecific {
@@ -71,6 +74,7 @@ export interface RedPacketMultipleSpecific {
     remainingSupply: bigint,
     totalPack: number,
     remainingPack: number,
+    deadline: number;
 }
 
 export class Report implements Contract {
@@ -156,55 +160,63 @@ export class Report implements Contract {
 
         if (packetType == Params.PacketTypeOp.single) {
 
-            let cs = param.beginParse()
+            let cs = redPacketDataRaw.beginParse()
             let totalSupply = cs.loadUintBig(256);
             let remainingSupply = cs.loadUintBig(256);
+            let deadline = cs.loadUint(32);
             redPacketData = {
                 packetType: `single`,
                 totalSupply,
                 remainingSupply,
+                deadline,
             }
         } else if (packetType == Params.PacketTypeOp.multipleFixed) {
 
-            let cs = param.beginParse()
+            let cs = redPacketDataRaw.beginParse()
             let totalSupply = cs.loadUintBig(256);
             let remainingSupply = cs.loadUintBig(256);
-            let totalPack = cs.loadUint(8);
-            let remainingPack = cs.loadUint(8);
+            let totalPack = cs.loadUint(16);
+            let remainingPack = cs.loadUint(16);
+            let deadline = cs.loadUint(32);
             redPacketData = {
                 packetType: `multipleFixed`,
                 totalSupply,
                 remainingSupply,
                 totalPack,
                 remainingPack,
+                deadline,
             }
         } else if (packetType == Params.PacketTypeOp.multipleRandom) {
 
-            let cs = param.beginParse()
+            let cs = redPacketDataRaw.beginParse()
             let totalSupply = cs.loadUintBig(256);
             let remainingSupply = cs.loadUintBig(256);
-            let totalPack = cs.loadUint(8);
-            let remainingPack = cs.loadUint(8);
+            let totalPack = cs.loadUint(16);
+            let remainingPack = cs.loadUint(16);
+            let deadline = cs.loadUint(32);
             redPacketData = {
                 packetType: `multipleRandom`,
                 totalSupply,
                 remainingSupply,
                 totalPack,
                 remainingPack,
+                deadline,
             }
         } else if (packetType == Params.PacketTypeOp.multipleSpecific) {
 
-            let cs = param.beginParse()
+            let cs = redPacketDataRaw.beginParse()
             let totalSupply = cs.loadUintBig(256);
             let remainingSupply = cs.loadUintBig(256);
-            let totalPack = cs.loadUint(8);
-            let remainingPack = cs.loadUint(8);
+            let totalPack = cs.loadUint(16);
+            let remainingPack = cs.loadUint(16);
+            let deadline = cs.loadUint(32);
             redPacketData = {
                 packetType: `multipleSpecific`,
                 totalSupply,
                 remainingSupply,
                 totalPack,
                 remainingPack,
+                deadline,
             }
         }
 
