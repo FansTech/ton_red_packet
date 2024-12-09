@@ -7,74 +7,34 @@ export type ReportType = ReportCreate | ReportWithdraw | ReportRefund;
 export interface ReportCreate {
     op: "create";
     tx: Transaction;
-    uid: bigint;
     packetType: number;
     token: Address;
-    amount: bigint;
-    packetIndex: bigint,
+    redPacketIndex: bigint,
     creator: Address,
-    redPacketDataRaw: Cell;
-    redPacketData: RedPacketData;
+    packetTypeName: `multipleAverage` | `multipleRandom`,
+    totalSupply: bigint,
+    totalPack: number,
+    perfee: bigint,
+    deadline: number,
 }
 
 export interface ReportWithdraw {
     op: "withdraw";
     tx: Transaction;
-    uid: bigint;
     token: Address;
     amount: bigint;
     recipient: Address;
+    recipientUid: Cell;
     redPacketIndex: bigint;
 }
 
 export interface ReportRefund {
     op: "refund";
     tx: Transaction;
-    uid: bigint;
     token: Address;
     amount: bigint;
     recipient: Address;
     redPacketIndex: bigint;
-}
-
-export type RedPacketData =
-    RedPacketSingle
-    | RedPacketMultipleFixed
-    | RedPacketMultipleRandom
-    | RedPacketMultipleSpecific
-
-export interface RedPacketSingle {
-    packetType: `single`,
-    totalSupply: bigint,
-    remainingSupply: bigint,
-    deadline: number;
-}
-
-export interface RedPacketMultipleFixed {
-    packetType: `multipleFixed`,
-    totalSupply: bigint,
-    remainingSupply: bigint,
-    totalPack: number,
-    remainingPack: number,
-    deadline: number;
-}
-
-export interface RedPacketMultipleRandom {
-    packetType: `multipleRandom`,
-    totalSupply: bigint,
-    remainingSupply: bigint,
-    totalPack: number,
-    remainingPack: number,
-    deadline: number;
-}
-
-export interface RedPacketMultipleSpecific {
-    packetType: `multipleSpecific`,
-    totalSupply: bigint,
-    remainingSupply: bigint,
-    totalPack: number,
-    remainingPack: number,
-    deadline: number;
 }
 
 export class Report implements Contract {
@@ -148,94 +108,42 @@ export class Report implements Contract {
 
         let cs = param.beginParse()
 
-        let uid = cs.loadUintBig(64);
-        let packetType = cs.loadUint(8);
-        let token = cs.loadAddress();
-        let amount = cs.loadUintBig(256);
         let packetIndex = cs.loadUintBig(64);
+        let packetType = cs.loadUint(8);
+        let totalPack = cs.loadUint(16);
+        let token = cs.loadAddress();
+
+        let totalSupply = cs.loadUintBig(256);
         let creator = cs.loadAddress();
 
-        let redPacketDataRaw = cs.loadRef();
-        let redPacketData: RedPacketData | null = null
+        let subSlice1 = cs.loadRef().beginParse();
 
-        if (packetType == Params.PacketTypeOp.single) {
+        let perfee = subSlice1.loadUintBig(256)
+        let deadline = subSlice1.loadUint(32)
 
-            let cs = redPacketDataRaw.beginParse()
-            let totalSupply = cs.loadUintBig(256);
-            let remainingSupply = cs.loadUintBig(256);
-            let deadline = cs.loadUint(32);
-            redPacketData = {
-                packetType: `single`,
-                totalSupply,
-                remainingSupply,
-                deadline,
-            }
-        } else if (packetType == Params.PacketTypeOp.multipleFixed) {
+        let packetTypeName: `multipleAverage` | `multipleRandom` = `multipleAverage`
+        if (packetType == Params.PacketTypeOp.multipleAverage) {
 
-            let cs = redPacketDataRaw.beginParse()
-            let totalSupply = cs.loadUintBig(256);
-            let remainingSupply = cs.loadUintBig(256);
-            let totalPack = cs.loadUint(16);
-            let remainingPack = cs.loadUint(16);
-            let deadline = cs.loadUint(32);
-            redPacketData = {
-                packetType: `multipleFixed`,
-                totalSupply,
-                remainingSupply,
-                totalPack,
-                remainingPack,
-                deadline,
-            }
+            packetTypeName = `multipleAverage`
         } else if (packetType == Params.PacketTypeOp.multipleRandom) {
 
-            let cs = redPacketDataRaw.beginParse()
-            let totalSupply = cs.loadUintBig(256);
-            let remainingSupply = cs.loadUintBig(256);
-            let totalPack = cs.loadUint(16);
-            let remainingPack = cs.loadUint(16);
-            let deadline = cs.loadUint(32);
-            redPacketData = {
-                packetType: `multipleRandom`,
-                totalSupply,
-                remainingSupply,
-                totalPack,
-                remainingPack,
-                deadline,
-            }
-        } else if (packetType == Params.PacketTypeOp.multipleSpecific) {
-
-            let cs = redPacketDataRaw.beginParse()
-            let totalSupply = cs.loadUintBig(256);
-            let remainingSupply = cs.loadUintBig(256);
-            let totalPack = cs.loadUint(16);
-            let remainingPack = cs.loadUint(16);
-            let deadline = cs.loadUint(32);
-            redPacketData = {
-                packetType: `multipleSpecific`,
-                totalSupply,
-                remainingSupply,
-                totalPack,
-                remainingPack,
-                deadline,
-            }
+            packetTypeName = `multipleRandom`
+        } else {
+            throw new Error(`failed to parse packet type`)
         }
-
-        if (!redPacketData) {
-            throw new Error(`failed to parse packet data`)
-        }
-
 
         return {
             op: "create",
             tx: tx,
-            uid: uid,
             packetType: packetType,
             token: token,
-            amount: amount,
-            packetIndex,
+            redPacketIndex: packetIndex,
             creator,
-            redPacketDataRaw: redPacketDataRaw,
-            redPacketData: redPacketData,
+            packetTypeName,
+            totalSupply,
+            totalPack,
+            perfee,
+            deadline,
         }
     }
 
@@ -243,19 +151,19 @@ export class Report implements Contract {
 
         let cs = param.beginParse()
 
-        let uid = cs.loadUintBig(64);
         let token = cs.loadAddress();
         let amount = cs.loadUintBig(256);
         let recipient = cs.loadAddress();
+        let recipientUid = cs.loadRef();
         let redPacketIndex = cs.loadUintBig(64);
 
         return {
             op: "withdraw",
             tx,
-            uid,
             token,
             amount,
             recipient,
+            recipientUid,
             redPacketIndex,
         }
     }
@@ -264,7 +172,6 @@ export class Report implements Contract {
 
         let cs = param.beginParse()
 
-        let uid = cs.loadUintBig(64);
         let token = cs.loadAddress();
         let amount = cs.loadUintBig(256);
         let recipient = cs.loadAddress();
@@ -273,7 +180,6 @@ export class Report implements Contract {
         return {
             op: "refund",
             tx,
-            uid,
             token,
             amount,
             recipient,

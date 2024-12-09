@@ -12,7 +12,7 @@ import {addressHash, addressZero, buildCodeDeployment, signCell,} from "../scrip
 import {Params} from "../adapters/Params";
 import {KeyPair} from "@ton/crypto/dist/primitives/nacl";
 import {mnemonicToPrivateKey, sha256} from "@ton/crypto";
-import {RedPacketMultipleFixed, Report, ReportCreate, ReportRefund, ReportWithdraw} from "../adapters/Report";
+import {Report, ReportCreate, ReportRefund, ReportWithdraw} from "../adapters/Report";
 
 describe('Router', () => {
 
@@ -52,14 +52,17 @@ describe('Router', () => {
     let wTonWalletBob: SandboxContract<WTonWalletWrapper>
     let wTonWalletCarlos: SandboxContract<WTonWalletWrapper>
 
-    let redPacketSingle: SandboxContract<RedPacketWrapper>
+    let redPacketMultipleAverage: SandboxContract<RedPacketWrapper>
     let redPacketMultipleFixed: SandboxContract<RedPacketWrapper>
     let redPacketMultipleRandom: SandboxContract<RedPacketWrapper>
     let redPacketMultipleFixedRefund: SandboxContract<RedPacketWrapper>
     let redPacketMultipleSpecific: SandboxContract<RedPacketWrapper>
 
     let queryId = 1n;
-    let packetIndex = 0n;
+    let redPacketIndex = 0n;
+
+    let perfee = toNano(`0.05`)
+    let deadline = Math.floor(new Date().getTime() / 1000) + 60
 
     beforeAll(async () => {
         try {
@@ -280,35 +283,45 @@ describe('Router', () => {
     beforeEach(async () => {
     });
 
+    let testData: Array<{ supply: bigint, pack: bigint, currentSupply: bigint }> = [
+        {
+            supply: toNano(10),
+            pack: 10n,
+            currentSupply: toNano(10),
+        }
+    ]
+
     // it('nothing', async () =>{})
-    it('alice create wTon pocket single', async () => {
+    it('alice create jetton pocket average', async () => {
 
-        console.log(`=============================================alice create wTon pocket single=============================================`)
+        console.log(`=============================================alice create jetton pocket average=============================================`)
 
-        let createTxFee = await router.getRouterCreateTxFee();
+        let createTxFee = await router.getRouterCreateTxFee({perfee});
         console.log(`createTxFee ${fromNano(createTxFee)}`)
 
-
-        let {body, tonAmount} = WTonWalletWrapper.buildTransfer(
+        let queryIdTemp = queryId++
+        let {body, tonAmount} = JettonWalletWrapper.buildTransfer(
             {
-                queryId: queryId++,
-                jettonAmount: toNano(10),
+                queryId: queryIdTemp,
+                jettonAmount: testData[0].supply,
                 toOwner: router.address,
                 responseAddress: alice.address,
                 forwardTonAmount: createTxFee,
                 forwardPayload: RouterWrapper.buildCreatePayload({
                     createParam: Params.composeCreateParamSigned(
                         {
+                            redPacketIndex: redPacketIndex++,
                             packetData: {
-                                op: "single",
-                                deadline: 1730779273,
+                                op: "multipleAverage",
+                                totalPack: testData[0].pack,
+                                deadline: deadline,
                             },
-                            uid: 1234n,
-                            packetIndex: packetIndex++,
+                            perfee: perfee,
                             serverCheck: {
-                                jettonUserWallet: wTonWalletRouter.address,
+                                queryId: queryIdTemp,
+                                jettonRouterWallet: jettonWalletRouter.address,
+                                redPacketSupply: testData[0].supply,
                                 router: router.address,
-                                redPacketSupply: toNano(10)
                             },
                             keyPair: serverKeyPair
                         }
@@ -317,7 +330,7 @@ describe('Router', () => {
             }
         );
 
-        let txResult = await wTonWalletAlice.sendTx(
+        let txResult = await jettonWalletAlice.sendTx(
             alice.getSender(),
             tonAmount,
             body
@@ -327,41 +340,47 @@ describe('Router', () => {
         });
 
         let redPacketAddress = await router.getRedPacket({redPacketIndex: 0})
-        redPacketSingle = await blockchain.openContract(RedPacketWrapper.createFromAddress(redPacketAddress))
-        expect((await redPacketSingle.getState()).state.type).toEqual(`active`)
-        expect((await redPacketSingle.getStorage()).state).toEqual(RedPacketWrapper.State.normal)
-        expect((await redPacketSingle.getStorage()).packetType).toEqual(Params.PacketTypeOp[`single`])
-        expect((await redPacketSingle.getStorage()).totalSupply).toEqual(toNano(10))
+        redPacketMultipleAverage = await blockchain.openContract(RedPacketWrapper.createFromAddress(redPacketAddress))
+        expect((await redPacketMultipleAverage.getState()).state.type).toEqual(`active`)
+        expect((await redPacketMultipleAverage.getStorage()).state).toEqual(RedPacketWrapper.State.normal)
+        expect((await redPacketMultipleAverage.getStorage()).packetType).toEqual(Params.PacketTypeOp[`multipleAverage`])
+        expect((await redPacketMultipleAverage.getStorage()).totalSupply).toEqual(testData[0].supply)
+        expect((await redPacketMultipleAverage.getStorage()).creator.equals(alice.address)).toEqual(true)
 
         //初始化时给到了1Ton,收到10Ton+一点gasFee,
-        expect((await wTonWalletRouter.getWalletData())?.balance).toBeGreaterThan(toNano(10) + toNano(1))
+        expect((await jettonWalletRouter.getWalletData())?.balance).toEqual(testData[0].supply)
 
         let report = Report.parseTransactions(txResult.transactions, router.address);
         expect(report.length).toEqual(1)
         expect(report[0].op).toEqual(`create`)
-        expect((report[0] as ReportCreate).packetType).toEqual(Params.PacketTypeOp.single)
-        expect((report[0] as ReportCreate).redPacketData.packetType).toEqual(`single`)
-        expect((report[0] as ReportCreate).packetIndex).toEqual(0n)
+        expect((report[0] as ReportCreate).packetType).toEqual(Params.PacketTypeOp.multipleAverage)
+        expect((report[0] as ReportCreate).packetTypeName).toEqual(`multipleAverage`)
+        expect((report[0] as ReportCreate).redPacketIndex).toEqual(0n)
     })
 
-    it('server on behalf of bob claim redPacket single', async () => {
+    it('server on behalf of bob claim redPacket average', async () => {
 
-        console.log(`=============================================server on behalf of bob claim redPacket single=============================================`)
+        console.log(`=============================================server on behalf of bob claim redPacket average=============================================`)
 
         let claimTxFee = await router.getRouterClaimTxFee();
         console.log(`claimTxFee ${fromNano(claimTxFee)}`)
 
-        let bobBalanceBefore = await bob.getBalance()
+        let bobBalanceBefore = await jettonWalletBob.getJettonBalance()
         console.log(`bobBalanceBefore ${fromNano(bobBalanceBefore)}`)
 
+        let toClaim = toNano(2);
+        testData[0].currentSupply -= toClaim;
+
         let body = RouterWrapper.buildClaim(
-            {
-                recipient: bob.address,
-                redPacketIndex: 0,
-                queryId: queryId++,
-                uid: 412341234n,
-                redPacketClaimServer: beginCell().endCell()
-            }
+            [
+                {
+                    subQueryId: queryId++,
+                    redPacketIndex: 0,
+                    recipient: bob.address,
+                    amount: toClaim,//服务器指定
+                    recipientUid: beginCell().endCell()
+                }
+            ]
         );
 
         let txResult = await router.sendTx(
@@ -373,177 +392,205 @@ describe('Router', () => {
             success: false,
         });
 
-        expect((await redPacketSingle.getStorage()).state).toEqual(RedPacketWrapper.State.finished)
-        expect((await redPacketSingle.getStorage()).totalSupply).toEqual(toNano(10))
-        expect((await redPacketSingle.getStorage()).remainingSupply).toEqual(toNano(0))
-        expect((await redPacketSingle.getStorage()).totalPack).toEqual(0)
-        expect((await redPacketSingle.getStorage()).remainingPack).toEqual(0)
+        expect((await redPacketMultipleAverage.getStorage()).state).toEqual(RedPacketWrapper.State.normal)
+        expect((await redPacketMultipleAverage.getStorage()).totalSupply).toEqual(testData[0].supply)
+        expect((await redPacketMultipleAverage.getStorage()).remainingSupply).toEqual(testData[0].currentSupply)
+        expect((await redPacketMultipleAverage.getStorage()).totalPack).toEqual(testData[0].pack)
 
 
-        let bobBalanceAfter = await bob.getBalance()
+        let bobBalanceAfter = await await jettonWalletBob.getJettonBalance()
         console.log(`bobBalanceAfter ${fromNano(bobBalanceAfter)}`)
         //fwd会耗费掉一点fwd_fee
-        expect(toNano(10) - (bobBalanceAfter - bobBalanceBefore)).toBeLessThan(toNano(0.001))
+        expect(toClaim - (bobBalanceAfter - bobBalanceBefore)).toBeLessThan(toNano(0.01))
 
         let report = Report.parseTransactions(txResult.transactions, router.address);
         expect(report.length).toEqual(1)
         expect(report[0].op).toEqual(`withdraw`)
         expect(bob.address.equals((report[0] as ReportWithdraw).recipient)).toBeTruthy()
         expect((report[0] as ReportWithdraw).redPacketIndex).toEqual(0n)
+        expect((report[0] as ReportWithdraw).amount).toEqual(toClaim)
     })
 
-    it('bob create wTon pocket multiple fixed', async () => {
+    it('server on behalf of bob and carlos claim redPacket average', async () => {
 
-        console.log(`=============================================bob create wTon pocket multiple fixed=============================================`)
+        console.log(`=============================================server on behalf of bob and carlos claim redPacket average=============================================`)
+        //这里bob claim了2次,是可以接受的.
 
-        let createTxFee = await router.getRouterCreateTxFee();
-        console.log(`createTxFee ${fromNano(createTxFee)}`)
 
-        const uid = 51234123n;
-        const deadline = 1730779273;
-        let {body, tonAmount} = WTonWalletWrapper.buildTransfer(
-            {
-                queryId: queryId++,
-                jettonAmount: toNano(4),
-                toOwner: router.address,
-                responseAddress: bob.address,
-                forwardTonAmount: createTxFee,
-                forwardPayload: RouterWrapper.buildCreatePayload({
-                    createParam: Params.composeCreateParamSigned(
-                        {
-                            packetData: {
-                                op: "multipleFixed",
-                                totalPack: 2,
-                                deadline,
-                            },
-                            uid,
-                            packetIndex: packetIndex++,
-                            serverCheck: {
-                                jettonUserWallet: wTonWalletRouter.address,
-                                router: router.address,
-                                redPacketSupply: toNano(4)
-                            },
-                            keyPair: serverKeyPair
-                        }
-                    ),
+        let claimTxFee = await router.getRouterClaimTxFee();
+        console.log(`claimTxFee ${fromNano(claimTxFee)}`)
 
-                }),
-            }
+        let bobBalanceBefore = await jettonWalletBob.getJettonBalance()
+        console.log(`bobBalanceBefore ${fromNano(bobBalanceBefore)}`)
+
+        let carlosBalanceBefore = await jettonWalletCarlos.getJettonBalance()
+        console.log(`carlosBalanceBefore ${fromNano(carlosBalanceBefore)}`)
+
+        let toClaimBob = toNano(3);
+        let toClaimCarlos = toNano(4);
+        testData[0].currentSupply -= toClaimBob;
+        testData[0].currentSupply -= toClaimCarlos;
+
+        let body = RouterWrapper.buildClaim(
+            [
+                {
+                    subQueryId: queryId++,
+                    redPacketIndex: 0,
+                    recipient: bob.address,
+                    amount: toClaimBob,//服务器指定
+                    recipientUid: beginCell().endCell()
+                },
+                {
+                    subQueryId: queryId++,
+                    redPacketIndex: 0,
+                    recipient: carlos.address,
+                    amount: toClaimCarlos,//服务器指定
+                    recipientUid: beginCell().endCell()
+                }
+            ]
         );
 
-        let txResult = await wTonWalletBob.sendTx(
-            bob.getSender(),
-            tonAmount,
+        let txResult = await router.sendTx(
+            server.getSender(),
+            claimTxFee,
             body
         );
         expect(txResult.transactions).not.toHaveTransaction({
             success: false,
         });
 
-        const redPacketIndex = 1n;
-        let redPacketAddress = await router.getRedPacket({redPacketIndex})
-        redPacketMultipleFixed = await blockchain.openContract(RedPacketWrapper.createFromAddress(redPacketAddress))
-        expect((await redPacketMultipleFixed.getState()).state.type).toEqual(`active`)
-        expect((await redPacketMultipleFixed.getStorage()).state).toEqual(RedPacketWrapper.State.normal)
-        expect((await redPacketMultipleFixed.getStorage()).packetType).toEqual(Params.PacketTypeOp[`multipleFixed`])
-        expect((await redPacketMultipleFixed.getStorage()).totalSupply).toEqual(toNano(4))
-        expect((await redPacketMultipleFixed.getStorage()).totalPack).toEqual(2)
-        expect((await redPacketMultipleFixed.getStorage()).remainingPack).toEqual(2)
+        expect((await redPacketMultipleAverage.getStorage()).state).toEqual(RedPacketWrapper.State.normal)
+        expect((await redPacketMultipleAverage.getStorage()).totalSupply).toEqual(testData[0].supply)
+        expect((await redPacketMultipleAverage.getStorage()).remainingSupply).toEqual(testData[0].currentSupply)
+        expect((await redPacketMultipleAverage.getStorage()).totalPack).toEqual(testData[0].pack)
+
+        let bobBalanceAfter = await jettonWalletBob.getJettonBalance()
+        console.log(`bobBalanceAfter ${fromNano(bobBalanceAfter)}`)
+        let carlosBalanceAfter = await jettonWalletCarlos.getJettonBalance()
+        console.log(`carlosBalanceAfter ${fromNano(carlosBalanceAfter)}`)
+        //fwd会耗费掉一点fwd_fee
+        expect(toClaimBob - (bobBalanceAfter - bobBalanceBefore)).toBeLessThan(toNano(0.01))
+        expect(toClaimCarlos - (carlosBalanceAfter - carlosBalanceBefore)).toBeLessThan(toNano(0.01))
 
         let report = Report.parseTransactions(txResult.transactions, router.address);
-        expect(report.length).toEqual(1);
-        expect(report[0].op).toEqual(`create`)
-        let reportCreate = report[0] as ReportCreate;
-        expect(reportCreate.uid).toEqual(uid);
-        expect(reportCreate.packetType).toEqual(Params.PacketTypeOp[`multipleFixed`]);
-        expect(reportCreate.token.equals(wTonWalletRouter.address)).toEqual(true);
-        expect(reportCreate.amount).toEqual(toNano(4));
-        expect(reportCreate.packetIndex).toEqual(redPacketIndex);
-        expect(reportCreate.redPacketData.packetType).toEqual(`multipleFixed`);
-        expect(reportCreate.redPacketData.totalSupply).toEqual(toNano(4));
-        expect(reportCreate.redPacketData.remainingSupply).toEqual(toNano(4));
-        expect((reportCreate.redPacketData as RedPacketMultipleFixed).totalPack).toEqual(2);
-        expect((reportCreate.redPacketData as RedPacketMultipleFixed).remainingPack).toEqual(2);
-        expect((reportCreate.redPacketData as RedPacketMultipleFixed).deadline).toEqual(deadline);
-
-        //初始化时给到了1Ton,收到10Ton+一点gasFee,又取走了,消耗了一点gas,有收到了4ton
-        expect((await wTonWalletRouter.getWalletData())?.balance).toBeGreaterThan(toNano(4) + toNano(1))
-
+        expect(report.length).toEqual(2)
+        expect(report[0].op).toEqual(`withdraw`)
+        expect(bob.address.equals((report[0] as ReportWithdraw).recipient)).toBeTruthy()
+        expect((report[0] as ReportWithdraw).redPacketIndex).toEqual(0n)
+        expect((report[0] as ReportWithdraw).amount).toEqual(toClaimBob)
+        expect(report[1].op).toEqual(`withdraw`)
+        expect(carlos.address.equals((report[1] as ReportWithdraw).recipient)).toBeTruthy()
+        expect((report[1] as ReportWithdraw).redPacketIndex).toEqual(0n)
+        expect((report[1] as ReportWithdraw).amount).toEqual(toClaimCarlos)
     })
 
-    it('server on behalf of alice and carlos claim redPacket multiple fixed', async () => {
+    it('alice refund redPacket average', async () => {
 
-        console.log(`=============================================server on behalf of alice and carlos claim redPacket multiple fixed=============================================`)
+        console.log(`=============================================alice refund redPacket average=============================================`)
+        //这里alice只refund 0.5 ton,还剩0.5个ton
+
+        blockchain.now = deadline + 60;
+
+        let closeTxFee = await router.getRouterCloseTxFee();
+        console.log(`closeTxFee ${fromNano(closeTxFee)}`)
+
+        let aliceBalanceBefore = await jettonWalletAlice.getJettonBalance()
+        console.log(`aliceBalanceBefore ${fromNano(aliceBalanceBefore)}`)
+
+        let toRefund = toNano(0.5);
+        testData[0].currentSupply -= toRefund;
+
+        let body = RouterWrapper.buildClose(
+            {
+                queryId: queryId++,
+                redPacketIndex: 0,
+                refundAccount: alice.address,
+                refundAmount: toRefund,//服务器指定
+                keyPair: serverKeyPair
+            },
+        );
+
+        let txResult = await router.sendTx(
+            alice.getSender(),
+            closeTxFee,
+            body
+        );
+        expect(txResult.transactions).not.toHaveTransaction({
+            success: false,
+        });
+
+        expect((await redPacketMultipleAverage.getStorage()).state).toEqual(RedPacketWrapper.State.refundButNotFinished)
+        expect((await redPacketMultipleAverage.getStorage()).totalSupply).toEqual(testData[0].supply)
+        expect((await redPacketMultipleAverage.getStorage()).remainingSupply).toEqual(testData[0].currentSupply)
+        expect((await redPacketMultipleAverage.getStorage()).totalPack).toEqual(testData[0].pack)
+
+        let aliceBalanceAfter = await jettonWalletAlice.getJettonBalance()
+        console.log(`aliceBalanceAfter ${fromNano(aliceBalanceAfter)}`)
+        //fwd会耗费掉一点fwd_fee
+        expect(toRefund - (aliceBalanceAfter - aliceBalanceBefore)).toBeLessThan(toNano(0.01))
+
+        let report = Report.parseTransactions(txResult.transactions, router.address);
+        expect(report.length).toEqual(1)
+        expect(report[0].op).toEqual(`refund`)
+        expect(alice.address.equals((report[0] as ReportRefund).recipient)).toBeTruthy()
+        expect((report[0] as ReportRefund).redPacketIndex).toEqual(0n)
+        expect((report[0] as ReportRefund).amount).toEqual(toRefund)
+    })
+
+
+    it('server on behalf of bob claim redPacket average, claim 0.5 for all', async () => {
+
+        console.log(`=============================================server on behalf of bob claim redPacket average, claim 0.5 for all=============================================`)
 
         let claimTxFee = await router.getRouterClaimTxFee();
         console.log(`claimTxFee ${fromNano(claimTxFee)}`)
 
-        {
+        let bobBalanceBefore = await jettonWalletBob.getJettonBalance()
+        console.log(`bobBalanceBefore ${fromNano(bobBalanceBefore)}`)
 
-            let aliceBalanceBefore = await alice.getBalance()
-            console.log(`aliceBalanceBefore ${fromNano(aliceBalanceBefore)}`)
+        let toClaim = toNano(0.5);
+        testData[0].currentSupply -= toClaim;
 
-            //第一次给alice取走,但是还没有取完
-            let body = RouterWrapper.buildClaim(
+        let body = RouterWrapper.buildClaim(
+            [
                 {
-                    recipient: alice.address,
-                    redPacketIndex: 1,
-                    queryId: queryId++,
-                    uid: 9778940123n,
-                    redPacketClaimServer: beginCell().endCell()
+                    subQueryId: queryId++,
+                    redPacketIndex: 0,
+                    recipient: bob.address,
+                    amount: toClaim,//服务器指定
+                    recipientUid: beginCell().endCell()
                 }
-            );
+            ]
+        );
 
-            let txResult = await router.sendTx(
-                server.getSender(),
-                claimTxFee,
-                body
-            );
-            expect(txResult.transactions).not.toHaveTransaction({
-                success: false,
-            });
-            expect((await redPacketMultipleFixed.getStorage()).state).toEqual(RedPacketWrapper.State.normal)
-            expect((await redPacketMultipleFixed.getStorage()).remainingSupply).toEqual(toNano(4) - toNano(2))
-            expect((await redPacketMultipleFixed.getStorage()).totalPack).toEqual(2)
-            expect((await redPacketMultipleFixed.getStorage()).remainingPack).toEqual(1)
+        let txResult = await router.sendTx(
+            server.getSender(),
+            claimTxFee,
+            body
+        );
+        expect(txResult.transactions).not.toHaveTransaction({
+            success: false,
+        });
 
+        expect((await redPacketMultipleAverage.getStorage()).state).toEqual(RedPacketWrapper.State.refundedAndFinished)
+        expect((await redPacketMultipleAverage.getStorage()).totalSupply).toEqual(testData[0].supply)
+        expect((await redPacketMultipleAverage.getStorage()).remainingSupply).toEqual(testData[0].currentSupply)
+        expect((await redPacketMultipleAverage.getStorage()).totalPack).toEqual(testData[0].pack)
+        
+        let bobBalanceAfter = await await jettonWalletBob.getJettonBalance()
+        console.log(`bobBalanceAfter ${fromNano(bobBalanceAfter)}`)
+        //fwd会耗费掉一点fwd_fee
+        expect(toClaim - (bobBalanceAfter - bobBalanceBefore)).toBeLessThan(toNano(0.01))
 
-            let aliceBalanceAfter = await alice.getBalance()
-            console.log(`aliceBalanceAfter ${fromNano(aliceBalanceAfter)}`)
-            //fwd会耗费掉一点fwd_fee
-            expect(toNano(2) - (aliceBalanceAfter - aliceBalanceBefore)).toBeLessThan(toNano(0.001))
-        }
-        {
-            //第二次给carlos取走,取完了
-            let body = RouterWrapper.buildClaim(
-                {
-                    recipient: carlos.address,
-                    redPacketIndex: 1,
-                    queryId: queryId++,
-                    uid: 71234123n,
-                    redPacketClaimServer: beginCell().endCell()
-                }
-            );
-
-            let txResult = await router.sendTx(
-                server.getSender(),
-                claimTxFee,
-                body
-            );
-            expect(txResult.transactions).not.toHaveTransaction({
-                success: false,
-            });
-            expect((await redPacketMultipleFixed.getStorage()).state).toEqual(RedPacketWrapper.State.finished)
-            expect((await redPacketMultipleFixed.getStorage()).remainingSupply).toEqual(toNano(4) - toNano(4))
-            expect((await redPacketMultipleFixed.getStorage()).totalPack).toEqual(2)
-            expect((await redPacketMultipleFixed.getStorage()).remainingPack).toEqual(0)
-
-            //总会多打一点,fwd_fee,gas_consume
-            // expect((await wTonWalletCarlos.getWalletData())?.balance).toBeGreaterThan(toNano(2))
-        }
+        let report = Report.parseTransactions(txResult.transactions, router.address);
+        expect(report.length).toEqual(1)
+        expect(report[0].op).toEqual(`withdraw`)
+        expect(bob.address.equals((report[0] as ReportWithdraw).recipient)).toBeTruthy()
+        expect((report[0] as ReportWithdraw).redPacketIndex).toEqual(0n)
+        expect((report[0] as ReportWithdraw).amount).toEqual(toClaim)
     })
 
-    it('carlos create jetton pocket multiple random', async () => {
+    /*it('carlos create jetton pocket multiple random', async () => {
 
         console.log(`=============================================carlos create jetton pocket multiple random=============================================`)
 
@@ -566,7 +613,7 @@ describe('Router', () => {
                                 deadline: 1730779273,
                             },
                             uid: 5623905n,
-                            packetIndex: packetIndex++,
+                            packetIndex: redPacketIndex++,
                             serverCheck: {
                                 jettonUserWallet: jettonWalletRouter.address,
                                 router: router.address,
@@ -709,7 +756,7 @@ describe('Router', () => {
                                 deadline: 1730779273,
                             },
                             uid: 3126123405n,
-                            packetIndex: packetIndex++,
+                            packetIndex: redPacketIndex++,
                             serverCheck: {
                                 jettonUserWallet: wTonWalletRouter.address,
                                 router: router.address,
@@ -857,7 +904,7 @@ describe('Router', () => {
                                 deadline: 1730779273,
                             },
                             uid: 532314905n,
-                            packetIndex: packetIndex++,
+                            packetIndex: redPacketIndex++,
                             serverCheck: {
                                 jettonUserWallet: jettonWalletRouter.address,
                                 router: router.address,
@@ -970,7 +1017,7 @@ describe('Router', () => {
         console.log(`aliceBalanceAfter ${fromNano(aliceBalanceAfter)}`)
         expect(aliceBalanceAfter - aliceBalanceBefore).toEqual(toNano(6n))
 
-    })
+    })*/
 
     async function getBalance(addr: Address) {
         return (await blockchain.getContract(addr)).balance

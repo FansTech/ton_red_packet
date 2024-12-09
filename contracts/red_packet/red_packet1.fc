@@ -19,24 +19,26 @@ cell params
 ) impure inline_ref {
 
     (
-        int uid:u64,
-        int packet_type:u8,
+        int red_packet_type:u8,
+        int total_pack:u16,
         slice token:addr,
         int amount:u256,
         slice creator:addr,
-        cell red_packet_init_data:cell
+        int deadline:u32,
+        int perfee:u256
     ) = red_packet::Init::de(params);
 
     throw_unless(301, _state:u8 == state::red_packet::initializing);
     throw_unless(302, _packet_type:u8 == type::red_packet::unknown);
 
     @init(
-        uid:u64,
-        packet_type:u8,
+        red_packet_type:u8,
+        total_pack:u16,
         token:addr,
         amount:u256,
         creator:addr,
-        red_packet_init_data:cell
+        deadline:u32,
+        perfee:u256
     );
 
     save_storage();
@@ -47,9 +49,9 @@ cell params
 ) impure inline_ref {
 
     (
-        int uid:u64,
+        int amount:u256,
         slice recipient:addr,
-        cell red_packet::Claim_server:cell
+        cell recipient_uid:cell
     ) = red_packet::Claim::de(params);
 
     throw_unless(303, equal_slices(sender:addr, _router:addr));
@@ -59,9 +61,9 @@ cell params
     );
 
     @claim(
-        uid:u64,
+        amount:u256,
         recipient:addr,
-        red_packet::Claim_server:cell
+        recipient_uid:cell
     );
 
     save_storage();
@@ -74,18 +76,18 @@ cell params
 ) impure inline_ref {
 
     (
-        int uid:u64,
         slice user_caller:addr,
-        cell red_packet::Close_server:cell
+        slice refund_account:addr,
+        int refund_amount:u256
     ) = red_packet::Close::de(params);
 
     throw_unless(303, equal_slices(sender:addr, _router:addr));
     throw_unless(304, _state:u8 == state::red_packet::normal);
 
     @close(
-        uid:u64,
         user_caller:addr,
-        red_packet::Close_server:cell
+        refund_account:addr,
+        refund_amount:u256
     );
 
     save_storage();

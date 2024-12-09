@@ -8,88 +8,36 @@
 #include "storage1.fc";
 
 () @init(
-int uid:u64,
-int packet_type:u8,
+int red_packet_type:u8,
+int total_pack:u16,
 slice token:addr,
 int amount:u256,
 slice creator:addr,
-cell red_packet_init_data:cell
+int deadline:u32,
+int perfee:u256
 ) impure inline_ref {
 
     int value_remaining = fee::red_packet::init(my_balance:coin, msg_value:coin);
 
     int now:u32 = now();
-    if (packet_type:u8 == type::red_packet::single) {
 
-        (int deadline:u32) = red_packet::Init_single::de(red_packet_init_data:cell);
+    throw_unless(112, 0 < amount:u256);
+    throw_unless(116, (red_packet_type:u8 == type::red_packet::multiple_average) | (red_packet_type:u8 == type::red_packet::multiple_random));
+    throw_unless(114, 1 < total_pack:u16);
+    throw_unless(115, now:u32 < deadline:u32);
 
-        throw_unless(112, 0 < amount:u256);
-        throw_unless(115, now:u32 < deadline:u32);
-
-        _packet_data:cell = @Single_data::se(amount:u256, amount:u256, deadline:u32);
-    }
-    if (packet_type:u8 == type::red_packet::multiple_fixed) {
-
-        (
-            int total_pack:u16,
-            int deadline:u32
-        ) = red_packet::Init_multiple_fix::de(red_packet_init_data:cell);
-
-        throw_unless(112, 0 < amount:u256);
-        throw_unless(114, 1 < total_pack:u16);
-        throw_unless(115, now:u32 < deadline:u32);
-
-        _packet_data:cell = @Multiple_fix_data::se(
-            amount:u256,
-            amount:u256,
-            total_pack:u16,
-            total_pack:u16,
-            deadline:u32
-        );
-    }
-    if (packet_type:u8 == type::red_packet::multiple_random) {
-
-        (
-            int total_pack:u16,
-            int deadline:u32
-        ) = red_packet::Init_multiple_random::de(red_packet_init_data:cell);
-
-        throw_unless(112, 0 < amount:u256);
-        throw_unless(114, 1 < total_pack:u16);
-        throw_unless(115, now:u32 < deadline:u32);
-
-        _packet_data:cell = @Multiple_random_data::se(
-            amount:u256,
-            amount:u256,
-            total_pack:u16,
-            total_pack:u16,
-            deadline:u32
-        );
-    }
-    if (packet_type:u8 == type::red_packet::multiple_specific) {
-
-        (
-            int total_pack:u16,
-            int deadline:u32
-        ) = red_packet::Init_multiple_specific::de(red_packet_init_data:cell);
-
-        throw_unless(112, 0 < amount:u256);
-        throw_unless(114, 1 < total_pack:u16);
-        throw_unless(115, now:u32 < deadline:u32);
-
-        _packet_data:cell = @Multiple_specific_data::se(
-            amount:u256,
-            amount:u256,
-            total_pack:u16,
-            total_pack:u16,
-            deadline:u32
-        );
-    }
 
     _state:u8 = state::red_packet::normal;
-    _packet_type:u8 = packet_type:u8;
+    _packet_type:u8 = red_packet_type:u8;
     _token:addr = token:addr;
     _creator:addr = creator:addr;
+
+    _packet_data:cell = @Packet_data::se(
+        amount:u256,
+        amount:u256,
+        total_pack:u16,
+        deadline:u32
+    );
 
     send_message_ref(
         value_remaining + fee::router::create_finished::tx_fee(),
@@ -97,13 +45,14 @@ cell red_packet_init_data:cell
         op::router::create_finished,
         query_id:u64,
         router::Create_finished::se(
-            uid:u64,
-            packet_type:u8,
+            _red_packet_index:u64,
+            red_packet_type:u8,
+            total_pack:u16,
             _token:addr,
             amount:u256,
-            _red_packet_index:u64,
             creator:addr,
-            _packet_data:cell
+            perfee:u256,
+            deadline:u32
         ),
         PAID_EXTERNALLY,
         TRUE:u1,

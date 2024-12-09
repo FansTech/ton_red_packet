@@ -73,9 +73,10 @@ const int gas::router::create = 1 * DOTDOT1;
 int gas::router::create::recharge(int my_balance, int msg_value) inline {
     return calc_reserve_and_storage_gap(my_balance, msg_value, 0, CONTRACT_MAINTENANCE);
 }
-int fee::router::create(int my_balance, int msg_value) inline {
+int fee::router::create(int perfee:u256, int my_balance, int msg_value) inline {
     int need_fee = gas::router::create ;;cost
     + gas::router::create::recharge(my_balance, msg_value) ;;keep
+    + perfee:u256
     + REPORT_FEE ;;out
     + fee::red_packet::deploy::tx_fee() + FORWARD_FEE1 ;;out
     + fee::red_packet::init::tx_fee() + FORWARD_FEE1 ;;out
@@ -84,9 +85,10 @@ int fee::router::create(int my_balance, int msg_value) inline {
     throw_unless(545, need_fee <= msg_value);
     return msg_value - need_fee;
 }
-int fee::router::create::tx_fee() inline {
+int fee::router::create::tx_fee(int perfee:u256) inline {
     return gas::router::create ;;cost
     + gas::router::create::recharge(0, 0) ;;keep-max
+    + perfee:u256
     + REPORT_FEE ;;out
     + fee::red_packet::deploy::tx_fee() + FORWARD_FEE1 ;;out
     + fee::red_packet::init::tx_fee() + FORWARD_FEE1

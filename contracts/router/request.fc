@@ -37,31 +37,31 @@ slice server:addr
 ;;===============================================
 ;;由前端se,传入transfer_notification forward_payload
 cell router::Create::se(
-int packet_index:u64,
-int packet_type:u8,
-cell red_packet::Init:cell,
-cell create_server_check:cell,
-int uid:u64,
+int red_packet_index:u64, ;;服务器指定
+int red_packet_type:u8, ;;多人平均,多人随机
+int total_pack:u16, ;;总共几个
+int deadline:u32, ;;deadline
+int perfee:u256, ;;给服务器的手续费
 cell signature:cell
 ) impure {
     return begin_cell()
-        .store_uint(packet_index:u64, 64)
-        .store_uint(packet_type:u8, 8)
-        .store_ref(red_packet::Init:cell)
-        .store_ref(create_server_check:cell)
-        .store_uint(uid:u64, 64)
+        .store_uint(red_packet_index:u64, 64)
+        .store_uint(red_packet_type:u8, 8)
+        .store_uint(total_pack:u16, 16)
+        .store_uint(deadline:u32, 32)
+        .store_uint(perfee:u256, 256)
         .store_ref(signature:cell)
         .end_cell();
 }
 
 (
-    int, int, cell, cell,
+    int, int, int, int,
     int, cell
 ) router::Create::de(cell input) impure {
     slice s = input.begin_parse();
     return (
-        s~load_uint(64), s~load_uint(8), s~load_ref(), s~load_ref(),
-        s~load_uint(64), s~load_ref()
+        s~load_uint(64), s~load_uint(8), s~load_uint(16), s~load_uint(32),
+        s~load_uint(256), s~load_ref()
     );
 }
 
@@ -102,56 +102,84 @@ int uid:u64
 
 ;;===============================================
 cell router::Create_finished::se(
-int uid:u64,
-int packet_type:u8,
+int red_packet_index:u64,
+int red_packet_type:u8,
+int total_pack:u16,
 slice token:addr,
 int amount:u256,
-int packet_index:u64,
 slice creator:addr,
-cell red_packet_data:cell
+int perfee:u256,
+int deadline:u32
 ) impure {
     return begin_cell()
-        .store_uint(uid:u64, 64)
-        .store_uint(packet_type:u8, 8)
+        .store_uint(red_packet_index:u64, 64)
+        .store_uint(red_packet_type:u8, 8)
+        .store_uint(total_pack:u16, 16)
         .store_slice(token:addr)
         .store_uint(amount:u256, 256)
-        .store_uint(packet_index:u64, 64)
         .store_slice(creator:addr)
-        .store_ref(red_packet_data:cell)
+        .store_ref(
+            begin_cell()
+                .store_uint(perfee:u256, 256)
+                .store_uint(deadline:u32, 32)
+                .end_cell()
+        )
         .end_cell();
 }
 
 (
-    int, int, slice, int,
-    int, slice, cell
+    int, int, int, slice,
+    int, slice, int, int
 ) router::Create_finished::de(cell input) impure {
     slice s = input.begin_parse();
+
+    int red_packet_index:u64 = s~load_uint(64);
+    int red_packet_type:u8 = s~load_uint(8);
+    int total_pack:u16 = s~load_uint(16);
+    slice token:addr = s~load_msg_addr();
+
+    int amount:u256 = s~load_uint(256);
+    slice creator:addr = s~load_msg_addr();
+
+    slice sub2:slice = s~load_ref().begin_parse();
+
+    int perfee:u256 = sub2:slice~load_uint(256);
+    int deadline:u32 = sub2:slice~load_uint(32);
+
     return (
-        s~load_uint(64), s~load_uint(8), s~load_msg_addr(), s~load_uint(256),
-        s~load_uint(64), s~load_msg_addr(), s~load_ref()
+        red_packet_index:u64, red_packet_type:u8, total_pack:u16, token:addr,
+        amount:u256, creator:addr, perfee:u256, deadline:u32
     );
 }
 
 ;;===============================================
 
 cell router::Claim::se(
-slice recipient:addr,
+int sub_query_id:u64,
 int red_packet_index:u64,
-int uid:u64,
-cell red_packet::Claim_server:cell
+slice recipient:addr,
+int amount:u256,
+cell recipient_uid:cell,
+cell ^next_claim_request:cell
 ) impure {
     return begin_cell()
-        .store_slice(recipient:addr)
+        .store_uint(sub_query_id:u64, 64)
         .store_uint(red_packet_index:u64, 64)
-        .store_uint(uid:u64, 64)
-        .store_ref(red_packet::Claim_server:cell)
+        .store_slice(recipient:addr)
+        .store_uint(amount:u256, 256)
+        .store_ref(recipient_uid:cell)
+        .store_maybe_ref(^next_claim_request:cell)
         .end_cell();
 }
 
-(slice, int, int, cell) router::Claim::de(cell input) impure {
+(
+    int, int, slice, int,
+    cell, cell
+) router::Claim::de(cell input) impure {
     slice s = input.begin_parse();
     return (
-        s~load_msg_addr(), s~load_uint(64), s~load_uint(64), s~load_ref()
+        s~load_uint(64), s~load_uint(64), s~load_msg_addr(), s~load_uint(256),
+        s~load_ref(), s~load_maybe_ref()
     );
 }
 
@@ -159,29 +187,49 @@ cell red_packet::Claim_server:cell
 ;;===============================================
 
 cell router::Withdraw::se(
-int uid:u64,
 slice token:addr,
 int amount:u256,
 slice recipient:addr,
+cell recipient_uid:cell,
+slice creator:addr,
+int finished:u1,
 int red_packet_index:u64
 ) impure {
     return begin_cell()
-        .store_uint(uid:u64, 64)
         .store_slice(token:addr)
         .store_uint(amount:u256, 256)
         .store_slice(recipient:addr)
-        .store_uint(red_packet_index:u64, 64)
+        .store_ref(recipient_uid:cell)
+        .store_ref(
+            begin_cell()
+                .store_slice(creator:addr)
+                .store_uint(finished:u1, 1)
+                .store_uint(red_packet_index:u64, 64)
+                .end_cell()
+        )
         .end_cell();
 }
 
 (
-    int, slice, int, slice,
-    int
+    slice, int, slice, cell,
+    slice, int, int
 ) router::Withdraw::de(cell input) impure {
     slice s = input.begin_parse();
+
+    slice token:addr = s~load_msg_addr();
+    int amount:u256 = s~load_uint(256);
+    slice recipient:addr = s~load_msg_addr();
+    cell recipient_uid:cell = s~load_ref();
+
+    slice sub2:slice = s~load_ref().begin_parse();
+
+    slice creator:addr = sub2:slice~load_msg_addr();
+    int finished:u1 = sub2:slice~load_uint(1);
+    int red_packet_index:u64 = sub2:slice~load_uint(64);
+
     return (
-        s~load_uint(64), s~load_msg_addr(), s~load_uint(256), s~load_msg_addr(),
-        s~load_uint(64)
+        token:addr, amount:u256, recipient:addr, recipient_uid:cell,
+        creator:addr, finished:u1, red_packet_index:u64
     );
 }
 
@@ -189,50 +237,48 @@ int red_packet_index:u64
 
 cell router::Close::se(
 int red_packet_index:u64,
-int uid:u64,
-cell red_packet::Claim_server:cell,
+slice refund_account:addr,
+int refund_amount:u256,
 cell signature:cell
 ) impure {
     return begin_cell()
         .store_uint(red_packet_index:u64, 64)
-        .store_uint(uid:u64, 64)
-        .store_ref(red_packet::Claim_server:cell)
+        .store_slice(refund_account:addr)
+        .store_uint(refund_amount:u256, 256)
         .store_ref(signature:cell)
         .end_cell();
 }
 
-(int, int, cell, cell) router::Close::de(cell input) impure {
+(
+    int, slice, int, cell
+) router::Close::de(cell input) impure {
     slice s = input.begin_parse();
     return (
-        s~load_uint(64), s~load_uint(64), s~load_ref(), s~load_ref()
+        s~load_uint(64), s~load_msg_addr(), s~load_uint(256), s~load_ref()
     );
 }
 
 ;;===============================================
 
 cell router::Refund::se(
-int uid:u64,
 slice token:addr,
-int amount:u256,
-slice recipient:addr,
+int refund_amount:u256,
+slice refund_account:addr,
 int red_packet_index:u64
 ) impure {
     return begin_cell()
-        .store_uint(uid:u64, 64)
         .store_slice(token:addr)
-        .store_uint(amount:u256, 256)
-        .store_slice(recipient:addr)
+        .store_uint(refund_amount:u256, 256)
+        .store_slice(refund_account:addr)
         .store_uint(red_packet_index:u64, 64)
         .end_cell();
 }
 
 (
-    int, slice, int, slice,
-    int
+    slice, int, slice, int
 ) router::Refund::de(cell input) impure {
     slice s = input.begin_parse();
     return (
-        s~load_uint(64), s~load_msg_addr(), s~load_uint(256), s~load_msg_addr(),
-        s~load_uint(64)
+        s~load_msg_addr(), s~load_uint(256), s~load_msg_addr(), s~load_uint(64)
     );
 }

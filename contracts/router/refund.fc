@@ -7,10 +7,9 @@
 #include "report.fc";
 
 () @refund(
-int uid:u64,
 slice token:addr,
-int amount:u256,
-slice recipient:addr,
+int refund_amount:u256,
+slice refund_account:addr,
 int red_packet_index:u64
 ) impure inline_ref {
 
@@ -18,9 +17,9 @@ int red_packet_index:u64
 
     send_jetton(
         query_id:u64,
-        recipient:addr,
+        refund_account:addr,
         _server:addr, ;;just return excess ton to server
-        amount:u256,
+        refund_amount:u256,
         token:addr,
         TRANSFER_JETTON_FEE + value_remaining,
         null()
@@ -32,10 +31,9 @@ int red_packet_index:u64
         op::report::report_refund,
         query_id:u64,
         router::Report_refund::se(
-            uid:u64,
             token:addr,
-            amount:u256,
-            recipient:addr,
+            refund_amount:u256,
+            refund_account:addr,
             red_packet_index:u64
         ),
         NORMAL,

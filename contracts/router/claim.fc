@@ -6,37 +6,60 @@
 
 #include "storage1.fc";
 #include "report.fc";
+#include "request.fc";
+#include "../utils/utils.fc";
 
 () @claim(
-int uid:u64,
-slice recipient:addr,
-int red_packet_index:u64,
-cell red_packet::Claim_server:cell
+cell param:cell
 ) impure inline_ref {
 
     int value_remaining = fee::router::claim(my_balance:coin, msg_value:coin);
 
-    slice red_packet_address = calculate_address(red_packet::state_init(
-        _red_packet_base_code:cell,
-        _code_manager_public_key:u256,
-        my_address(),
-        red_packet_index:u64
-    ));
+    cell needParse:cell = param:cell;
 
-    send_message_ref(
-        value_remaining + fee::red_packet::claim::tx_fee(),
-        red_packet_address,
-        op::red_packet::claim,
-        query_id:u64,
-        red_packet::Claim::se(
-            uid:u64,
-            recipient:addr,
-            red_packet::Claim_server:cell
-        ),
-        PAID_EXTERNALLY,
-        TRUE:u1,
-        null()
-    );
+    int quit_while_flag:u1 = FALSE:u1;
+    while (quit_while_flag:u1 == FALSE:u1) {
+
+        (
+            int sub_query_id:u64,
+            int red_packet_index:u64,
+            slice recipient:addr,
+            int amount:u256,
+            cell recipient_uid:cell,
+            cell ^next_claim_request:cell
+        ) = router::Claim::de(needParse:cell);
+
+        slice red_packet_address = calculate_address(red_packet::state_init(
+            _red_packet_base_code:cell,
+            _code_manager_public_key:u256,
+            my_address(),
+            red_packet_index:u64
+        ));
+
+
+        send_message_ref(
+            value_remaining + fee::red_packet::claim::tx_fee(),
+            red_packet_address,
+            op::red_packet::claim,
+            sub_query_id:u64,
+            red_packet::Claim::se(
+                amount:u256,
+                recipient:addr,
+                recipient_uid:cell
+            ),
+            PAID_EXTERNALLY,
+            TRUE:u1,
+            null()
+        );
+
+        value_remaining = 0;
+
+        if (cell_null?(^next_claim_request:cell)) {
+            quit_while_flag:u1 = TRUE:u1;
+        } else {
+            needParse:cell = ^next_claim_request:cell;
+        }
+    }
 
     return ();
 }

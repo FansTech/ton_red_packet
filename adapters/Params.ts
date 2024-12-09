@@ -4,18 +4,11 @@ import {signCell} from "../scripts/utils";
 import {KeyPair} from "@ton/crypto/dist/primitives/nacl";
 
 export type PacketType =
-    Single
-    | MultipleFixed
+    | MultipleAverage
     | MultipleRandom
-    | MultipleSpecific
 
-export interface Single {
-    op: "single",
-    deadline: number,
-}
-
-export interface MultipleFixed {
-    op: "multipleFixed",
+export interface MultipleAverage {
+    op: "multipleAverage",
     totalPack: number | bigint,
     deadline: number,
 }
@@ -27,21 +20,13 @@ export interface MultipleRandom {
 
 }
 
-export interface MultipleSpecific {
-    op: "multipleSpecific",
-    totalPack: number | bigint,
-    deadline: number,
-}
-
 export class Params implements Contract {
     static readonly Opcodes = {
         create: crc32str(`op::router::create`),
     };
     public static readonly PacketTypeOp = {
-        single: 1,
-        multipleFixed: 2,
-        multipleRandom: 3,
-        multipleSpecific: 4,
+        multipleAverage: 1,
+        multipleRandom: 2,
     };
 
     constructor(readonly address: Address, readonly init?: { code: Cell; data: Cell }) {
@@ -49,81 +34,67 @@ export class Params implements Contract {
 
     public static composeCreateParamSigned(
         opts: {
+            redPacketIndex: bigint | number,
             packetData: PacketType,
-            uid: bigint | number,
-            packetIndex: bigint | number,
+            perfee: bigint | number,
             serverCheck: {
-                jettonUserWallet: Address,
-                router: Address,
+                queryId: bigint | number,
+                jettonRouterWallet: Address,
                 redPacketSupply: bigint | number,
+                router: Address,
             }
             keyPair: KeyPair
         }
     ) {
 
-
         let packetTypeOp = Params.PacketTypeOp[opts.packetData.op]
 
+        let body = beginCell();
 
-        let redPacketInit = null;
-        if (opts.packetData.op == `single`) {
-            redPacketInit = beginCell()
-                .storeUint(opts.packetData.deadline, 32)
-                .endCell()
+        body.storeUint(opts.redPacketIndex, 64)
 
-        } else if (opts.packetData.op == "multipleFixed") {
-            redPacketInit = beginCell()
+        if (opts.packetData.op == "multipleAverage") {
+            body.storeUint(packetTypeOp, 8)
                 .storeUint(opts.packetData.totalPack, 16)
                 .storeUint(opts.packetData.deadline, 32)
-                .endCell()
 
         } else if (opts.packetData.op == "multipleRandom") {
-            redPacketInit = beginCell()
+            body.storeUint(packetTypeOp, 8)
                 .storeUint(opts.packetData.totalPack, 16)
                 .storeUint(opts.packetData.deadline, 32)
-                .endCell()
-
-        } else if (opts.packetData.op == "multipleSpecific") {
-            redPacketInit = beginCell()
-                .storeUint(opts.packetData.totalPack, 16)
-                .storeUint(opts.packetData.deadline, 32)
-                .endCell()
 
         } else {
             throw new Error(`unknown packet type`)
         }
 
+        body.storeUint(opts.perfee, 256)
+
 
         let createServerCheck = beginCell()
-            .storeAddress(opts.serverCheck.jettonUserWallet)
-            .storeAddress(opts.serverCheck.router)
-            .storeUint(opts.packetIndex, 64)
+            .storeUint(opts.serverCheck.queryId, 64)
+            .storeUint(opts.redPacketIndex, 64)
             .storeUint(packetTypeOp, 8)
-            .storeUint(opts.serverCheck.redPacketSupply, 256)
-            .storeUint(opts.packetData.op === "single" ? 1 : opts.packetData.totalPack, 16)
+            .storeUint(opts.packetData.totalPack, 16)
             .storeUint(opts.packetData.deadline, 32)
-            .storeUint(opts.uid, 64)
-
-
-        let toSign = beginCell()
-            .storeRef(createServerCheck)
+            .storeUint(opts.perfee, 256)
+            .storeRef(
+                beginCell()
+                    .storeAddress(opts.serverCheck.jettonRouterWallet)
+                    .storeUint(opts.serverCheck.redPacketSupply, 256)
+                    .storeAddress(opts.serverCheck.router)
+                    .endCell()
+            )
             .endCell()
 
-        let sig = signCell(opts.keyPair, toSign)
+        let sig = signCell(opts.keyPair, createServerCheck);
 
-        return beginCell()
-            .storeUint(opts.packetIndex, 64)
-            .storeUint(packetTypeOp, 8)
-            .storeRef(redPacketInit)
-            .storeRef(createServerCheck)
-            .storeUint(opts.uid, 64)
+        return body
             .storeRef(
                 beginCell()
                     .storeBuffer(sig)
                     .endCell()
             )
             .endCell()
-
     }
 
 }

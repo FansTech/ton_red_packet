@@ -9,207 +9,85 @@
 #include "../utils/utils.fc";
 
 () @claim(
-int uid:u64,
+int amount:u256,
 slice recipient:addr,
-cell red_packet::Claim_server:cell
+cell recipient_uid:cell
 ) impure inline_ref {
 
     int value_remaining = fee::red_packet::claim(my_balance:coin, msg_value:coin);
 
-    int claim_amount:u256 = 0;
-    int reclaimedAll:u1 = FALSE:u1;
     int now:u32 = now();
-    if (_packet_type:u8 == type::red_packet::single) {
-
-        (
-            int total_supply:u256,
-            int remaining_supply:u256,
-            int deadline:u32
-        ) = @Single_data::de(_packet_data:cell);
-
-        throw_unless(305, total_supply:u256 == remaining_supply:u256);
-        throw_unless(310, now:u32 < deadline:u32);
-
-        claim_amount:u256 = total_supply:u256;
-        remaining_supply:u256 = 0;
-
-        _packet_data:cell = @Single_data::se(
-            total_supply:u256,
-            remaining_supply:u256,
-            deadline:u32
-        );
-        _state:u8 = state::red_packet::finished;
-
-        reclaimedAll:u1 = TRUE:u1;
-    }
-    if (_packet_type:u8 == type::red_packet::multiple_fixed) {
+    if ((_packet_type:u8 == type::red_packet::multiple_average) | (_packet_type:u8 == type::red_packet::multiple_random)) {
 
         (
             int total_supply:u256,
             int remaining_supply:u256,
             int total_pack:u16,
-            int remaining_pack:u16,
             int deadline:u32
-        ) = @Multiple_fix_data::de(_packet_data:cell);
+        ) = @Packet_data::de(_packet_data:cell);
 
-        throw_unless(306, 0 < remaining_supply:u256);
-        throw_unless(307, 0 < remaining_pack:u16);
-        throw_unless(310, now:u32 < deadline:u32);
+        throw_unless(305, 0 < amount:u256);
+        throw_unless(306, amount:u256 <= remaining_supply:u256);
+        ;; throw_unless(310, now:u32 < deadline:u32);
 
-        claim_amount:u256 = total_supply:u256 / total_pack:u16;
-        remaining_supply:u256 -= claim_amount:u256;
-        remaining_pack:u16 -= 1;
+        remaining_supply:u256 -= amount:u256;
 
-        if (remaining_pack:u16 == 0) {
-            _state:u8 = state::red_packet::finished;
-
-            ;;remainder
-            claim_amount:u256 += remaining_supply:u256;
-            remaining_supply:u256 = 0;
-        }
-
-        _packet_data:cell = @Multiple_fix_data::se(
-            total_supply:u256,
-            remaining_supply:u256,
-            total_pack:u16,
-            remaining_pack:u16,
-            deadline:u32
-        );
-
-        if (remaining_pack:u16 == 0) {
-            reclaimedAll:u1 = TRUE:u1;
-        }
-    }
-    if (_packet_type:u8 == type::red_packet::multiple_random) {
-
-        (
-            int total_supply:u256,
-            ;;需要在一开始留出total_pack:u16个coin,保证每人至少分到1个
-            ;;remaining_supply:u256里
-            int remaining_supply:u256,
-            int total_pack:u16,
-            int remaining_pack:u16,
-            int deadline:u32
-        ) = @Multiple_random_data::de(_packet_data:cell);
-
-        throw_unless(308, 0 < remaining_pack:u16);
-        throw_unless(310, now:u32 < deadline:u32);
-
-
-        if (remaining_pack:u16 == 1) {
-            claim_amount:u256 = remaining_supply:u256;
-        } else {
-            ;;[1, 2*remaining_supply/remaining_pack]
-            int claim_amount_max:u256 = 2 * (remaining_supply:u256 - 1 * remaining_pack:u16) / remaining_pack:u16;
-
-            claim_amount:u256 = rand(claim_amount_max:u256) + 1;
-        }
-
-        remaining_supply:u256 -= claim_amount:u256;
-        remaining_pack:u16 -= 1;
-
-        if (remaining_pack:u16 == 0) {
-            _state:u8 = state::red_packet::finished;
-        }
-
-        _packet_data:cell = @Multiple_random_data::se(
-            total_supply:u256,
-            remaining_supply:u256,
-            total_pack:u16,
-            remaining_pack:u16,
-            deadline:u32
-        );
-
-        if (remaining_pack:u16 == 0) {
-            reclaimedAll:u1 = TRUE:u1;
-        }
-    }
-    if (_packet_type:u8 == type::red_packet::multiple_specific) {
-
-        (
-            int total_supply:u256,
-            int remaining_supply:u256,
-            ;;pack其实没有意义,仅仅作为计数和校验
-            int total_pack:u16,
-            int remaining_pack:u16,
-            int deadline:u32
-        ) = @Multiple_specific_data::de(_packet_data:cell);
-
-        throw_unless(308, 0 < remaining_pack:u16);
-        throw_unless(306, 0 < remaining_supply:u256);
-        throw_unless(310, now:u32 < deadline:u32);
-
-        (
-            claim_amount:u256
-        ) = red_packet::Claim_server::de(red_packet::Claim_server:cell);
-
-        ~strdump("claim multiple_specific claim_amount:u256:");
-        ~dump(claim_amount:u256);
-
-        throw_unless(316, claim_amount:u256 <= remaining_supply:u256);
-
-        remaining_supply:u256 -= claim_amount:u256;
-        remaining_pack:u16 -= 1;
-
-        ~strdump("remaining_supply:u256:");
-        ~dump([remaining_supply:u256, remaining_pack:u16, _state:u8]);
-
+        ;;我们不对 remaining_supply:u256 做任何保护,服务器计算不要出错!!!!
+        ;;因为对于claim的红包没有deadline的限制,所以无法通过deadline来判断红包是否领完.
+        ;;只有余额为空才说明真正领完,才可以执行最后的销毁合约操作
         if (remaining_supply:u256 == 0) {
-            if (_state:u8 == state::red_packet::refunded_but_not_finished) {
-                ~strdump("hit");
-
-                _state:u8 = state::red_packet::refunded;
-            } else {
+            if (_state:u8 == state::red_packet::normal) {
                 _state:u8 = state::red_packet::finished;
             }
+            if (_state:u8 == state::red_packet::refunded_but_not_finished) {
+                _state:u8 = state::red_packet::refunded_and_finished;
+            }
         }
-        ~dump([_state:u8]);
 
-        _packet_data:cell = @Multiple_specific_data::se(
+        _packet_data:cell = @Packet_data::se(
             total_supply:u256,
             remaining_supply:u256,
             total_pack:u16,
-            remaining_pack:u16,
             deadline:u32
         );
-
-        if (remaining_pack:u16 == 0) {
-            reclaimedAll:u1 = TRUE:u1;
-        }
     }
 
     ;;ask router to send token
-    ifnot (reclaimedAll:u1) {
-        send_message_ref(
-            value_remaining + fee::router::withdraw::tx_fee(),
-            _router:addr,
-            op::router::withdraw,
-            query_id:u64,
-            router::Withdraw::se(
-                uid:u64,
-                _token:addr,
-                claim_amount:u256,
-                recipient:addr,
-                _red_packet_index:u64
-            ),
-            PAID_EXTERNALLY,
-            TRUE:u1,
-            null()
-        );
-    } else {
+    if ((_state:u8 == state::red_packet::finished) | (_state:u8 == state::red_packet::refunded_and_finished)) {
         send_message_ref(
             0,
             _router:addr,
             op::router::withdraw,
             query_id:u64,
             router::Withdraw::se(
-                uid:u64,
                 _token:addr,
-                claim_amount:u256,
+                amount:u256,
                 recipient:addr,
+                recipient_uid:cell,
+                _creator:addr,
+                TRUE:u1,
                 _red_packet_index:u64
             ),
             NORMAL | CARRY_ALL_BALANCE,
+            TRUE:u1,
+            null()
+        );
+    } else {
+        send_message_ref(
+            value_remaining + fee::router::withdraw::tx_fee(),
+            _router:addr,
+            op::router::withdraw,
+            query_id:u64,
+            router::Withdraw::se(
+                _token:addr,
+                amount:u256,
+                recipient:addr,
+                recipient_uid:cell,
+                _creator:addr,
+                FALSE:u1,
+                _red_packet_index:u64
+            ),
+            PAID_EXTERNALLY,
             TRUE:u1,
             null()
         );

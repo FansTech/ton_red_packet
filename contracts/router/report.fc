@@ -1,39 +1,45 @@
 #include "../imports/stdlib.fc";
 
 cell router::Report_create::se(
-int uid:u64,
-int packet_type:u8,
+int red_packet_index:u64,
+int red_packet_type:u8,
+int total_pack:u16,
 slice token:addr,
 int amount:u256,
-int packet_index:u64,
 slice creator:addr,
-cell red_packet_data:cell
+int perfee:u256,
+int deadline:u32
 ) impure {
     return begin_cell()
-        .store_uint(uid:u64, 64)
-        .store_uint(packet_type:u8, 8)
+        .store_uint(red_packet_index:u64, 64)
+        .store_uint(red_packet_type:u8, 8)
+        .store_uint(total_pack:u16, 16)
         .store_slice(token:addr)
         .store_uint(amount:u256, 256)
-        .store_uint(packet_index:u64, 64)
         .store_slice(creator:addr)
-        .store_ref(red_packet_data:cell)
+        .store_ref(
+            begin_cell()
+                .store_uint(perfee:u256, 256)
+                .store_uint(deadline:u32, 32)
+                .end_cell()
+        )
         .end_cell();
 }
 
 ;;===============================================
 
 cell router::Report_withdraw::se(
-int uid:u64,
 slice token:addr,
 int amount:u256,
 slice recipient:addr,
+cell recipient_uid:cell,
 int red_packet_index:u64
 ) impure {
     return begin_cell()
-        .store_uint(uid:u64, 64)
         .store_slice(token:addr)
         .store_uint(amount:u256, 256)
         .store_slice(recipient:addr)
+        .store_ref(recipient_uid:cell)
         .store_uint(red_packet_index:u64, 64)
         .end_cell();
 }
@@ -41,14 +47,12 @@ int red_packet_index:u64
 ;;===============================================
 
 cell router::Report_refund::se(
-int uid:u64,
 slice token:addr,
 int amount:u256,
 slice recipient:addr,
 int red_packet_index:u64
 ) impure {
     return begin_cell()
-        .store_uint(uid:u64, 64)
         .store_slice(token:addr)
         .store_uint(amount:u256, 256)
         .store_slice(recipient:addr)

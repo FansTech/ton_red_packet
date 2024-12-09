@@ -1,122 +1,69 @@
 #include "../imports/stdlib.fc";
 
 cell red_packet::Init::se(
-int uid:u64,
-int packet_type:u8,
+int red_packet_type:u8,
+int total_pack:u16,
 slice token:addr,
 int amount:u256,
 slice creator:addr,
-cell red_packet_init_data:cell
+int deadline:u32,
+int perfee:u256
 ) impure {
     return begin_cell()
-        .store_uint(uid:u64, 64)
-        .store_uint(packet_type:u8, 8)
+        .store_uint(red_packet_type:u8, 8)
+        .store_uint(total_pack:u16, 16)
         .store_slice(token:addr)
         .store_uint(amount:u256, 256)
         .store_slice(creator:addr)
-        .store_ref(red_packet_init_data:cell)
+        .store_ref(
+            begin_cell()
+                .store_uint(deadline:u32, 32)
+                .store_uint(perfee:u256, 256)
+                .end_cell()
+        )
         .end_cell();
 }
 
 (
     int, int, slice, int,
-    slice, cell
+    slice, int, int
 ) red_packet::Init::de(cell input) impure {
     slice s = input.begin_parse();
+
+    int red_packet_type:u8 = s~load_uint(8);
+    int total_pack:u16 = s~load_uint(16);
+    slice token:addr = s~load_msg_addr();
+    int amount:u256 = s~load_uint(256);
+    slice creator:addr = s~load_msg_addr();
+
+    slice sub1:slice = s~load_ref().begin_parse();
+
+    int deadline:u32 = sub1:slice~load_uint(32);
+    int perfee:u256 = sub1:slice~load_uint(256);
+
     return (
-        s~load_uint(64), s~load_uint(8), s~load_msg_addr(), s~load_uint(256),
-        s~load_msg_addr(), s~load_ref()
+        red_packet_type:u8, total_pack:u16, token:addr, amount:u256,
+        creator:addr, deadline:u32, perfee:u256
     );
 }
-
-;;===========================================================================
-cell red_packet::Init_single::se(
-int deadline:u32
-) impure {
-    return begin_cell()
-        .store_uint(deadline:u32, 32)
-        .end_cell();
-}
-
-(int) red_packet::Init_single::de(cell input) impure {
-    slice s = input.begin_parse();
-    return (
-        s~load_uint(32)
-    );
-}
-
-;;===========================================================================
-cell red_packet::Init_multiple_fix::se(
-int total_pack:u16,
-int deadline:u32
-) impure {
-    return begin_cell()
-        .store_uint(total_pack:u16, 16)
-        .store_uint(deadline:u32, 32)
-        .end_cell();
-}
-
-(int, int) red_packet::Init_multiple_fix::de(cell input) impure {
-    slice s = input.begin_parse();
-    return (
-        s~load_uint(16), s~load_uint(32)
-    );
-}
-
-;;===========================================================================
-cell red_packet::Init_multiple_random::se(
-int total_pack:u16,
-int deadline:u32
-) impure {
-    return begin_cell()
-        .store_uint(total_pack:u16, 16)
-        .store_uint(deadline:u32, 32)
-        .end_cell();
-}
-
-(int, int) red_packet::Init_multiple_random::de(cell input) impure {
-    slice s = input.begin_parse();
-    return (
-        s~load_uint(16), s~load_uint(32)
-    );
-}
-
-;;===========================================================================
-cell red_packet::Init_multiple_specific::se(
-int total_pack:u16,
-int deadline:u32
-) impure {
-    return begin_cell()
-        .store_uint(total_pack:u16, 16)
-        .store_uint(deadline:u32, 32)
-        .end_cell();
-}
-
-(int, int) red_packet::Init_multiple_specific::de(cell input) impure {
-    slice s = input.begin_parse();
-    return (
-        s~load_uint(16), s~load_uint(32)
-    );
-}
-
 
 ;;===========================================================================
 cell red_packet::Claim::se(
-int uid:u64,
+int amount:u256,
 slice recipient:addr,
-cell red_packet::Claim_server:cell
+cell recipient_uid:cell
 ) impure {
     return begin_cell()
-        .store_uint(uid:u64, 64)
+        .store_uint(amount:u256, 256)
         .store_slice(recipient:addr)
-        .store_ref(red_packet::Claim_server:cell)
+        .store_ref(recipient_uid:cell)
         .end_cell();
 }
 
 (int, slice, cell) red_packet::Claim::de(cell input) impure {
     slice s = input.begin_parse();
     return (
-        s~load_uint(64), s~load_msg_addr(), s~load_ref()
+        s~load_uint(256), s~load_msg_addr(), s~load_ref()
     );
 }
 ;;===========================================================================
@@ -136,21 +83,21 @@ int claim_amount:u256
 }
 ;;===========================================================================
 cell red_packet::Close::se(
-int uid:u64,
 slice user_caller:addr,
-cell red_packet::Close_server:cell
+slice refund_account:addr,
+int refund_amount:u256
 ) impure {
     return begin_cell()
-        .store_uint(uid:u64, 64)
         .store_slice(user_caller:addr)
-        .store_ref(red_packet::Close_server:cell)
+        .store_slice(refund_account:addr)
+        .store_uint(refund_amount:u256, 256)
         .end_cell();
 }
 
-(int, slice, cell) red_packet::Close::de(cell input) impure {
+(slice, slice, int) red_packet::Close::de(cell input) impure {
     slice s = input.begin_parse();
     return (
-        s~load_uint(64), s~load_msg_addr(), s~load_ref()
+        s~load_msg_addr(), s~load_msg_addr(), s~load_uint(256)
     );
 }
 ;;===========================================================================

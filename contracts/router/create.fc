@@ -9,15 +9,16 @@
 
 () @create(
 int red_packet_index:u64,
-int uid:u64,
-int packet_type:u8,
+int red_packet_type:u8,
+int total_pack:u16,
 int amount:u256,
 slice token:addr,
 slice creator:addr,
-cell red_packet_init_data:cell
+int deadline:u32,
+int perfee:u256
 ) impure inline_ref {
 
-    int value_remaining = fee::router::create(my_balance:coin, msg_value:coin);
+    int value_remaining = fee::router::create(perfee:u256, my_balance:coin, msg_value:coin);
 
     cell red_packet_state_init:cell = red_packet::state_init(
         _red_packet_base_code:cell,
@@ -46,12 +47,13 @@ cell red_packet_init_data:cell
         op::red_packet::init,
         query_id:u64,
         red_packet::Init::se(
-            uid:u64,
-            packet_type:u8,
+            red_packet_type:u8,
+            total_pack:u16,
             token:addr,
             amount:u256,
             creator:addr,
-            red_packet_init_data:cell
+            deadline:u32,
+            perfee:u256
         ),
         PAID_EXTERNALLY,
         TRUE:u1,

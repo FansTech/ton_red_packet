@@ -18,6 +18,7 @@
 #include "close.fc";
 #include "refund.fc";
 #include "../imports/stdlib_ext.fc";
+#include "../red_packet/op.fc";
 
 () @init_procedure(
 cell params
@@ -46,99 +47,57 @@ slice from_wallet:addr
 ) impure inline_ref {
 
     (
-        int packet_index:u64,
-        int packet_type:u8,
-        cell red_packet_init_data:cell,
-        cell create_server_check:cell,
-        int uid:u64,
+        int red_packet_index:u64, ;;服务器指定
+        int red_packet_type:u8, ;;多人平均,多人随机
+        int total_pack:u16, ;;总共几个
+        int deadline:u32, ;;deadline
+        int perfee:u256, ;;给服务器的手续费
+        ;;钱包(红包ID, token(wallet),红包金额,红包类型,数量,Perfee,deadline... )
         cell signature:cell
     ) = router::Create::de(params);
 
     ;;校验
     {
+        ;;校验参数
+        throw_unless(145, total_pack:u16 > 0);
+        throw_unless(146, (red_packet_type:u8 == type::red_packet::multiple_average) | (red_packet_type:u8 == type::red_packet::multiple_random));
+
+
         ;;校验签名
         int result = check_signature(
             cell_hash(
                 begin_cell()
                 ;;这里决定需要被签名保护的内容
-                    .store_ref(create_server_check:cell)
+                    .store_uint(query_id:u64, 64)
+                    .store_uint64(red_packet_index:u64)
+                    .store_uint8(red_packet_type:u8)
+                    .store_uint16(total_pack:u16)
+                    .store_uint32(deadline:u32)
+                    .store_uint256(perfee:u256)
+                    .store_ref(
+                        begin_cell()
+                            .store_slice(sender:addr) ;;jetton_user_wallet:addr 也就是router_jetton_wallet
+                            .store_uint(jetton_amount:u256, 256) ;;red_packet_supply::u256
+                            .store_slice(my_address()) ;;router
+                            .end_cell()
+                    )
                     .end_cell()
             ),
             signature:cell.begin_parse(),
             _server_public_key:u256
         );
         throw_unless(133, result == -1);
-
-        ;;校验入参
-        (
-            slice jetton_user_wallet:addr,
-            slice router:addr,
-            int red_packet_index:u64,
-            int red_packet_type:u8,
-            int red_packet_supply::u256,
-            int red_packet_pack:u16,
-            int red_packet_deadline:u32,
-            int uid_to_check:u64
-        ) = router::Create_check::de(create_server_check:cell);
-        throw_unless(139, uid:u64 == uid_to_check:u64);
-        throw_unless(140, equal_slices(sender:addr, jetton_user_wallet:addr));
-        throw_unless(141, equal_slices(router:addr, my_address()));
-        throw_unless(142, red_packet_index:u64 == packet_index:u64);
-        throw_unless(143, red_packet_type:u8 == packet_type:u8);
-        throw_unless(144, red_packet_supply::u256 == jetton_amount:u256);
-
-        if (packet_type:u8 == type::red_packet::single) {
-
-            (int deadline:u32) = red_packet::Init_single::de(red_packet_init_data:cell);
-
-            throw_unless(145, red_packet_pack:u16 == 1);
-            throw_unless(146, red_packet_deadline:u32 == deadline:u32);
-
-        }
-        if (packet_type:u8 == type::red_packet::multiple_fixed) {
-
-            (
-                int total_pack:u16,
-                int deadline:u32
-            ) = red_packet::Init_multiple_fix::de(red_packet_init_data:cell);
-
-            throw_unless(145, red_packet_pack:u16 == total_pack:u16);
-            throw_unless(146, red_packet_deadline:u32 == deadline:u32);
-
-        }
-        if (packet_type:u8 == type::red_packet::multiple_random) {
-
-            (
-                int total_pack:u16,
-                int deadline:u32
-            ) = red_packet::Init_multiple_random::de(red_packet_init_data:cell);
-
-            throw_unless(145, red_packet_pack:u16 == total_pack:u16);
-            throw_unless(146, red_packet_deadline:u32 == deadline:u32);
-
-        }
-        if (packet_type:u8 == type::red_packet::multiple_specific) {
-
-            (
-                int total_pack:u16,
-                int deadline:u32
-            ) = red_packet::Init_multiple_specific::de(red_packet_init_data:cell);
-
-            throw_unless(145, red_packet_pack:u16 == total_pack:u16);
-            throw_unless(146, red_packet_deadline:u32 == deadline:u32);
-
-        }
-
     }
 
     @create(
-        packet_index:u64,
-        uid:u64,
-        packet_type:u8,
+        red_packet_index:u64,
+        red_packet_type:u8,
+        total_pack:u16,
         jetton_amount:u256,
         sender:addr, ;;jetton wallet of router
         from_wallet:addr,
-        red_packet_init_data:cell
+        deadline:u32,
+        perfee:u256
     );
 
     save_storage();
@@ -151,23 +110,25 @@ cell params
 ) impure inline_ref {
 
     (
-        int uid:u64,
-        int packet_type:u8,
+        int red_packet_index:u64,
+        int red_packet_type:u8,
+        int total_pack:u16,
         slice token:addr,
         int amount:u256,
-        int packet_index:u64,
         slice creator:addr,
-        cell red_packet_data:cell
+        int perfee:u256,
+        int deadline:u32
     ) = router::Create_finished::de(params);
 
     @create_finished(
-        uid:u64,
-        packet_type:u8,
+        red_packet_index:u64,
+        red_packet_type:u8,
+        total_pack:u16,
         token:addr,
         amount:u256,
-        packet_index:u64,
         creator:addr,
-        red_packet_data:cell
+        perfee:u256,
+        deadline:u32
     );
 
     save_storage();
@@ -179,21 +140,12 @@ cell params
 cell params
 ) impure inline_ref {
 
-    (
-        slice recipient:addr,
-        int red_packet_index:u64,
-        int uid:u64,
-        cell red_packet::Claim_server:cell
-    ) = router::Claim::de(params);
 
     ;;check if it is the server
     throw_unless(203, equal_slices(sender:addr, _server:addr));
 
     @claim(
-        uid:u64,
-        recipient:addr,
-        red_packet_index:u64,
-        red_packet::Claim_server:cell
+        params
     );
 
     save_storage();
@@ -205,10 +157,12 @@ cell params
 ) impure inline_ref {
 
     (
-        int uid:u64,
         slice token:addr,
         int amount:u256,
         slice recipient:addr,
+        cell recipient_uid:cell,
+        slice creator:addr,
+        int finished:u1,
         int red_packet_index:u64
     ) = router::Withdraw::de(params);
 
@@ -225,10 +179,12 @@ cell params
     );
 
     @withdraw(
-        uid:u64,
         token:addr,
         amount:u256,
         recipient:addr,
+        recipient_uid:cell,
+        creator:addr,
+        finished:u1,
         red_packet_index:u64
     );
 
@@ -243,8 +199,8 @@ cell params
 
     (
         int red_packet_index:u64,
-        int uid:u64,
-        cell red_packet::Close_server:cell,
+        slice refund_account:addr,
+        int refund_amount:u256,
         cell signature:cell
     ) = router::Close::de(params);
 
@@ -255,8 +211,10 @@ cell params
             cell_hash(
                 begin_cell()
                 ;;这里决定需要被签名保护的内容
-                    .store_uint(uid:u64, 64)
-                    .store_ref(red_packet::Close_server:cell)
+                    .store_uint(query_id:u64, 64)
+                    .store_uint64(red_packet_index:u64)
+                    .store_slice(refund_account:addr)
+                    .store_uint256(refund_amount:u256)
                     .end_cell()
             ),
             signature:cell.begin_parse(),
@@ -266,9 +224,9 @@ cell params
     }
 
     @close(
-        uid:u64,
         red_packet_index:u64,
-        red_packet::Close_server:cell
+        refund_account:addr,
+        refund_amount:u256
     );
 
     save_storage();
@@ -281,10 +239,9 @@ cell params
 ) impure inline_ref {
 
     (
-        int uid:u64,
         slice token:addr,
-        int amount:u256,
-        slice recipient:addr,
+        int refund_amount:u256,
+        slice refund_account:addr,
         int red_packet_index:u64
     ) = router::Refund::de(params);
 
@@ -301,10 +258,9 @@ cell params
     );
 
     @refund(
-        uid:u64,
         token:addr,
-        amount:u256,
-        recipient:addr,
+        refund_amount:u256,
+        refund_account:addr,
         red_packet_index:u64
     );
 
@@ -390,33 +346,38 @@ cell params
         return ();
     }
     if (op == op::router::claim) {
+        ;;领红包
         ~strdump("op::router::claim");
         @claim_procedure(in_msg_body~load_ref());
         return ();
     }
     if (op == op::router::withdraw) {
+        ;;领红包打款调用
         ~strdump("op::router::withdraw");
         @withdraw_procedure(in_msg_body~load_ref());
         return ();
     }
     if (op == op::router::close) {
+        ;;红包退款
         ~strdump("op::router::close");
         @close_procedure(in_msg_body~load_ref());
         return ();
     }
     if (op == op::router::refund) {
+        ;;红包退款打款调用
         ~strdump("op::router::refund");
         @refund_procedure(in_msg_body~load_ref());
         return ();
     }
     if (op == op::router::create_finished) {
+        ;;新建红包反馈调用
         ~strdump("op::router::create_finished");
         @create_finished_procedure(in_msg_body~load_ref());
         return ();
     }
     if (op == op::transfer_notification()) {
         ~strdump("op::transfer_notification");
-        ;;op::router::create
+        ;;op::router::create, 创建红包
         @transfer_notification(in_msg_body);
         return ();
     }

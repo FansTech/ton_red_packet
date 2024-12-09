@@ -86,38 +86,67 @@ export class RouterWrapper implements Contract {
             .endCell();
     }
 
-    static buildClaim(opts: {
-        recipient: Address,
-        redPacketIndex: number | bigint,
-        uid: bigint,
-        redPacketClaimServer: Cell
-        queryId: bigint,
-    }) {
+    static buildClaim(
+        opts: Array<{
+            subQueryId: bigint | number,
+            redPacketIndex: number | bigint,
+            recipient: Address,
+            amount: bigint | number,
+            recipientUid: Cell,
+        }>,
+        queryId: bigint | number = 0, //没什么用
+    ) {
+
+        if (opts.length == 0) {
+            throw new Error("claim at least one request!")
+        }
+
+        let requests = opts.map(claimReq => {
+            return beginCell()
+                .storeUint(claimReq.subQueryId, 64)
+                .storeUint(claimReq.redPacketIndex, 64)
+                .storeAddress(claimReq.recipient)
+                .storeUint(claimReq.amount, 256)
+                .storeRef(claimReq.recipientUid)
+
+        }).reverse()
+
+        //第0个不需要挂载别人,只需要被挂载到第1个就可以了
+        requests[0] = requests[0].storeMaybeRef(null);
+
+        for (let index = 0; index < requests.length - 1; index++) {
+            let current = requests[index];
+            let next = requests[index + 1];
+
+            next.storeMaybeRef(current.endCell());
+
+            requests[index + 1] = next;
+        }
+
+        let last = requests[requests.length - 1].endCell();
+
         return beginCell()
             .storeUint(RouterWrapper.Opcodes.claim, 32)
-            .storeUint(opts.queryId, 64)
+            .storeUint(queryId, 64)
             .storeRef(
-                beginCell()
-                    .storeAddress(opts.recipient)
-                    .storeUint(opts.redPacketIndex, 64)
-                    .storeUint(opts.uid, 64)
-                    .storeRef(opts.redPacketClaimServer)
-                    .endCell()
+                last
             )
             .endCell();
     }
 
     static buildClose(opts: {
         redPacketIndex: number | bigint,
-        uid?: bigint,
-        redPacketCloseServer: Cell,
+        refundAccount: Address,
+        refundAmount: number | bigint,
         queryId: bigint,
         keyPair: KeyPair
     }) {
 
         let toSign = beginCell()
-            .storeUint(opts.uid ?? 0n, 64)
-            .storeRef(opts.redPacketCloseServer)
+            .storeUint(opts.queryId, 64)
+            .storeUint(opts.redPacketIndex, 64)
+            .storeAddress(opts.refundAccount)
+            .storeUint(opts.refundAmount, 256)
             .endCell()
 
         let sig = signCell(opts.keyPair, toSign)
@@ -128,8 +157,8 @@ export class RouterWrapper implements Contract {
             .storeRef(
                 beginCell()
                     .storeUint(opts.redPacketIndex, 64)
-                    .storeUint(opts.uid ?? 0n, 64)
-                    .storeRef(opts.redPacketCloseServer)
+                    .storeAddress(opts.refundAccount)
+                    .storeUint(opts.refundAmount, 256)
                     .storeRef(
                         beginCell()
                             .storeBuffer(sig)
@@ -150,8 +179,10 @@ export class RouterWrapper implements Contract {
 
     //===========fee
 
-    async getRouterCreateTxFee(provider: ContractProvider/*, opts: { owner: Address }*/) {
-        let res = await provider.get('get_router_create_tx_fee', []);
+    async getRouterCreateTxFee(provider: ContractProvider, opts: { perfee: bigint | number }) {
+        let res = await provider.get('get_router_create_tx_fee', [
+            {type: 'int', value: BigInt(opts.perfee)}
+        ]);
 
         let fee = res.stack.readBigNumber();
 
@@ -230,18 +261,6 @@ export class RouterWrapper implements Contract {
         };
     }
 
-    async getLiquidity(provider: ContractProvider, opts: {
-        liquidityId: bigint | number,
-    }) {
-        let res = await provider.get('get_liquidity', [
-            {type: 'int', value: BigInt(opts.liquidityId)},
-        ]);
-
-        let liquidityAddress = res.stack.readAddress();
-
-        return liquidityAddress;
-    }
-
     async getRedPacket(provider: ContractProvider, opts: {
         redPacketIndex: bigint | number,
     }) {
@@ -253,49 +272,4 @@ export class RouterWrapper implements Contract {
 
         return redPacketAddress;
     }
-
-    //===========getter nft
-
-    async getCollectionData(provider: ContractProvider,) {
-        let res = await provider.get('get_collection_data', []);
-
-        let nextLiquidityId = res.stack.readBigNumber();
-        let content = res.stack.readCell();
-        let admin = res.stack.readAddress();
-
-        return {
-            nextLiquidityId,
-            content,
-            admin,
-        };
-    }
-
-    async getNftAddressByIndex(provider: ContractProvider, opts: {
-        liquidityId: bigint | number,
-    }) {
-        let res = await provider.get('get_nft_address_by_index', [
-            {type: 'int', value: BigInt(opts.liquidityId)}
-        ]);
-
-        let liquidityAddress = res.stack.readAddress();
-
-        return liquidityAddress;
-    }
-
-    async getNftContent(provider: ContractProvider, opts: {
-        liquidityId: bigint | number,
-        individualNftContent: Cell,
-    }) {
-        let res = await provider.get('get_nft_content', [
-            {type: 'int', value: BigInt(opts.liquidityId)},
-            {type: 'cell', cell: opts.individualNftContent},
-        ]);
-
-        let nftContent = res.stack.readCell();
-
-        return nftContent;
-    }
-
-    //===========getter nft
-
 }

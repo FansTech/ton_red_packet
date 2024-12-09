@@ -5,12 +5,15 @@
 
 #include "storage1.fc";
 #include "report.fc";
+#include "../utils/utils.fc";
 
 () @withdraw(
-int uid:u64,
 slice token:addr,
 int amount:u256,
 slice recipient:addr,
+cell recipient_uid:cell,
+slice creator:addr,
+int finished:u1,
 int red_packet_index:u64
 ) impure inline_ref {
 
@@ -22,7 +25,7 @@ int red_packet_index:u64
         _server:addr, ;;just return excess ton to server
         amount:u256,
         token:addr,
-        TRANSFER_JETTON_FEE + value_remaining,
+        TRANSFER_JETTON_FEE + (finished:u1 == TRUE:u1 ? 0 : value_remaining),
         null()
     );
 
@@ -32,14 +35,18 @@ int red_packet_index:u64
         op::report::report_withdraw,
         query_id:u64,
         router::Report_withdraw::se(
-            uid:u64,
             token:addr,
             amount:u256,
             recipient:addr,
+            recipient_uid:cell,
             red_packet_index:u64
         ),
         NORMAL,
         FALSE:u1,
         null()
     );
+
+    if (finished:u1 == TRUE:u1) {
+        send_ton_if_neccesary(value_remaining, creator:addr);
+    }
 }
