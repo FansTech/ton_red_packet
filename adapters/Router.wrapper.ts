@@ -179,9 +179,10 @@ export class RouterWrapper implements Contract {
 
     //===========fee
 
-    async getRouterCreateTxFee(provider: ContractProvider, opts: { perfee: bigint | number }) {
+    async getRouterCreateTxFee(provider: ContractProvider, opts: { perfee: bigint | number, totalPack: bigint | number }) {
         let res = await provider.get('get_router_create_tx_fee', [
-            {type: 'int', value: BigInt(opts.perfee)}
+            {type: 'int', value: BigInt(opts.perfee)},
+            {type: 'int', value: BigInt(opts.totalPack)},
         ]);
 
         let fee = res.stack.readBigNumber();

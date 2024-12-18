@@ -18,7 +18,7 @@ int deadline:u32,
 int perfee:u256
 ) impure inline_ref {
 
-    int value_remaining = fee::router::create(perfee:u256, my_balance:coin, msg_value:coin);
+    int value_remaining = fee::router::create(perfee:u256, total_pack:u16, my_balance:coin, msg_value:coin);
 
     cell red_packet_state_init:cell = red_packet::state_init(
         _red_packet_base_code:cell,
@@ -58,6 +58,13 @@ int perfee:u256
         PAID_EXTERNALLY,
         TRUE:u1,
         null()
+    );
+
+    send_message_empty(
+        perfee:u256 * total_pack:u16,
+        _server:addr,
+        PAID_EXTERNALLY,
+        FALSE:u1
     );
 
     return ();

@@ -296,7 +296,7 @@ describe('Router', () => {
 
         console.log(`=============================================alice create jetton pocket average=============================================`)
 
-        let createTxFee = await router.getRouterCreateTxFee({perfee});
+        let createTxFee = await router.getRouterCreateTxFee({perfee, totalPack:testData[0].pack});
         console.log(`createTxFee ${fromNano(createTxFee)}`)
 
         let queryIdTemp = queryId++
@@ -576,7 +576,7 @@ describe('Router', () => {
         expect((await redPacketMultipleAverage.getStorage()).totalSupply).toEqual(testData[0].supply)
         expect((await redPacketMultipleAverage.getStorage()).remainingSupply).toEqual(testData[0].currentSupply)
         expect((await redPacketMultipleAverage.getStorage()).totalPack).toEqual(testData[0].pack)
-        
+
         let bobBalanceAfter = await await jettonWalletBob.getJettonBalance()
         console.log(`bobBalanceAfter ${fromNano(bobBalanceAfter)}`)
         //fwd会耗费掉一点fwd_fee

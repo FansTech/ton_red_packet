@@ -69,15 +69,15 @@ int fee::red_packet::deploy::tx_fee() inline {
     ;
 }
 ;;---------------
-const int gas::router::create = 1 * DOTDOT1;
+const int gas::router::create = 5 * DOTDOT1;
 int gas::router::create::recharge(int my_balance, int msg_value) inline {
     return calc_reserve_and_storage_gap(my_balance, msg_value, 0, CONTRACT_MAINTENANCE);
 }
-int fee::router::create(int perfee:u256, int my_balance, int msg_value) inline {
+int fee::router::create(int perfee:u256, int total_pack:u16, int my_balance, int msg_value) inline {
     int need_fee = gas::router::create ;;cost
     + gas::router::create::recharge(my_balance, msg_value) ;;keep
-    + perfee:u256
-    + REPORT_FEE ;;out
+    + perfee:u256 * total_pack:u16
+    ;; + REPORT_FEE ;;out
     + fee::red_packet::deploy::tx_fee() + FORWARD_FEE1 ;;out
     + fee::red_packet::init::tx_fee() + FORWARD_FEE1 ;;out
     + 0 ;;remaining
@@ -85,21 +85,21 @@ int fee::router::create(int perfee:u256, int my_balance, int msg_value) inline {
     throw_unless(545, need_fee <= msg_value);
     return msg_value - need_fee;
 }
-int fee::router::create::tx_fee(int perfee:u256) inline {
+int fee::router::create::tx_fee(int perfee:u256 , int total_pack:u16) inline {
     return gas::router::create ;;cost
     + gas::router::create::recharge(0, 0) ;;keep-max
-    + perfee:u256
-    + REPORT_FEE ;;out
+    + perfee:u256 * total_pack:u16
+    ;; + REPORT_FEE ;;out
     + fee::red_packet::deploy::tx_fee() + FORWARD_FEE1 ;;out
     + fee::red_packet::init::tx_fee() + FORWARD_FEE1
     + MSG_VALUE_SUPPLEMENT
     ;
 }
-
 ;;===================================create===========================================
+
 ;;===================================claim===========================================
 
-const int gas::router::withdraw = 1 * DOTDOT1;
+const int gas::router::withdraw = 5 * DOTDOT1;
 int gas::router::withdraw::recharge(int my_balance, int msg_value) inline {
     return calc_reserve_and_storage_gap(my_balance, msg_value, 0, CONTRACT_MAINTENANCE);
 }
@@ -122,7 +122,7 @@ int fee::router::withdraw::tx_fee() inline {
     ;
 }
 ;;---------------
-const int gas::red_packet::claim = 1 * DOTDOT1;
+const int gas::red_packet::claim = 5 * DOTDOT1;
 int gas::red_packet::claim::recharge(int my_balance, int msg_value) inline {
     return calc_reserve_and_storage_gap(my_balance, msg_value, 0, CONTRACT_MAINTENANCE);
 }
@@ -143,7 +143,7 @@ int fee::red_packet::claim::tx_fee() inline {
     ;
 }
 ;;---------------
-const int gas::router::claim = 1 * DOTDOT1;
+const int gas::router::claim = 5 * DOTDOT1;
 int gas::router::claim::recharge(int my_balance, int msg_value) inline {
     return calc_reserve_and_storage_gap(my_balance, msg_value, 0, CONTRACT_MAINTENANCE);
 }
@@ -163,8 +163,8 @@ int fee::router::claim::tx_fee() inline {
     + MSG_VALUE_SUPPLEMENT
     ;
 }
-
 ;;===================================claim===========================================
+
 ;;===================================close===========================================
 
 const int gas::router::refund = 1 * DOTDOT1;

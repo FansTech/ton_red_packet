@@ -1,8 +1,8 @@
 #include "../imports/stdlib.fc";
 #include "../lib/export.fc";
 
-(int) get_router_create_tx_fee(int perfee:u256) method_id {
-    return fee::router::create::tx_fee(perfee:u256);
+(int) get_router_create_tx_fee(int perfee:u256, int total_pack:u16) method_id {
+    return fee::router::create::tx_fee(perfee:u256, total_pack:u16);
 }
 
 (int) get_router_claim_tx_fee() method_id {
