@@ -23,7 +23,7 @@ int perfee:u256
 
     throw_unless(112, 0 < amount:u256);
     throw_unless(116, (red_packet_type:u8 == type::red_packet::multiple_average) | (red_packet_type:u8 == type::red_packet::multiple_random));
-    throw_unless(114, 1 < total_pack:u16);
+    throw_unless(114, 1 <= total_pack:u16);
     throw_unless(115, now:u32 < deadline:u32);
 
 
