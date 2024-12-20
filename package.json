@@ -9,9 +9,9 @@
         "tommy:deploy:testnet": "dotenv -f testnet.deployer.env run -- blueprint run tommy_deployRouter --testnet --tonviewer --mnemonic",
         "tommy:deploy:jetton:testnet": "dotenv -f testnet.deployer.env run -- blueprint run tommy_deploy_jetton --testnet --tonviewer --mnemonic",
         "tommy:mint:jetton:testnet": "dotenv -f testnet.deployer.env run -- blueprint run tommy_mint_jetton --testnet --tonviewer --mnemonic",
-        "tommy:create:jetton:testnet": "dotenv -f testnet.deployer.env run -- blueprint run tommy_create_redpacket_jetton --testnet --tonviewer --mnemonic",
-        "tommy:create:wton:testnet": "dotenv -f testnet.deployer.env run -- blueprint run tommy_create_redpacket_wton --testnet --tonviewer --mnemonic",
-        "tommy:mintToken:testnet": "dotenv -f testnet.deployer.env run -- blueprint run tommy_mintWton --testnet --tonviewer --mnemonic"
+        "tommy:create:jetton:testnet": "dotenv -f testnet.deployer.env run -- blueprint run tommy_jetton_redpacket_create --testnet --tonviewer --mnemonic",
+        "tommy:claim:jetton:testnet": "dotenv -f testnet.deployer.env run -- blueprint run tommy_jetton_redpacket_claim --testnet --tonviewer --mnemonic",
+        "tommy:refund:jetton:testnet": "dotenv -f testnet.deployer.env run -- blueprint run tommy_jetton_redpacket_refund --testnet --tonviewer --mnemonic"
     },
     "devDependencies": {
         "@ton/blueprint": "^0.22.0",

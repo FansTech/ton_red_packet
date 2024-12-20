@@ -16,11 +16,12 @@ export async function run(provider: NetworkProvider) {
         throw new Error("empty sender address")
     }
     let queryId = 0
-    let id = 1
-    let perfee = 10000
-    let totalPack = 10000
+    let id = 2
+    let perfee = 10000000
+    let totalPack = 2
     let supply = toNano(0.2)
-    let deadline = Date.parse(new Date().toString()) / 1000 + 3600 * 24;
+    // let deadline = Date.parse(new Date().toString()) / 1000 + 3600 * 24;
+    let deadline = Date.parse(new Date().toString()) / 1000 + 60;
 
 
     const routerAddress = address("EQBAs_bWOkVwIsAgo3TE4GzgJqERTY7mxj7YUjo3QNui6K4X")

@@ -13,7 +13,7 @@ export async function main() {
     // console.log(WalletContractV4.create({ workchain: 0, publicKey: serverKeyPair.publicKey }).address)
     // console.log(serverKeyPair.publicKey.toString())
 
-    const serverKeyPair = await mnemonicToPrivateKey('manage laundry pair dignity remove word entry token eyebrow will say cash cricket nurse relief salt ahead home inmate rate hold corn winter kingdom'.split(` `));
+    const serverKeyPair = await mnemonicToPrivateKey('scan taxi hockey learn saddle furnace grocery rhythm thrive husband noise park force program shine rib proud trigger spread where carpet season rocket online'.split(` `));
 
     console.log(WalletContractV4.create({ workchain: 0, publicKey: serverKeyPair.publicKey }).address)
 

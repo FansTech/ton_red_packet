@@ -3,6 +3,6 @@ report: EQCIYJ8kChj5d9HsR-zpeuNvEKDS20Xb9ZnqTrmIpU5JwiG1
 tWon: EQCqa8bBrpnytxPbgjK6LtOJ8R_qLxtkwTwq_n1FtOROa2if
 wTonWalletRouter: EQCmHnBEOppsBa76of3KCUC9PL9fpKSSaFB9pSw2t9BpSzsZ
 owner: EQCq4U95YNJviVnaskaGVvf0dIfMx9xAQRZnDByEK3u4eeD1
-signer: EQCq4U95YNJviVnaskaGVvf0dIfMx9xAQRZnDByEK3u4eeD1
+signer: EQBOTU-Q7aWJ0rd3SlFal_XMPG9JkGR4wcHMIZPNJC8xIKW6
 
 jetton token: EQDJo4SdGFocukquMLiGUGZ8uHrZA7syQvNWUSN0vGJ_S6Zb
