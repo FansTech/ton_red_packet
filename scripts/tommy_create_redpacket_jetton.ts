@@ -19,7 +19,7 @@ export async function run(provider: NetworkProvider) {
     let id = 1
     let perfee = 10000
     let totalPack = 10000
-    let supply = 10000000
+    let supply = toNano(0.2)
     let deadline = Date.parse(new Date().toString()) / 1000 + 3600 * 24;
 
 
@@ -42,8 +42,8 @@ export async function run(provider: NetworkProvider) {
 
     const { body, tonAmount } = JettonWalletWrapper.buildTransfer(
         {
-            queryId: 10002n,
-            jettonAmount: toNano(0.2),
+            queryId: queryId,
+            jettonAmount: supply,
             toOwner: router.address,
             responseAddress: sender.address,
             forwardTonAmount: fee,
