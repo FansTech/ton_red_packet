@@ -3,12 +3,15 @@
     "version": "0.0.1",
     "scripts": {
         "build:all": "blueprint build --all",
-
         "build:scratch_pad": "blueprint build ScratchPad",
-
         "deploy:router:testnet": "dotenv -e testnet.deployer.env -- blueprint run deployRouter --testnet --tonviewer --mnemonic",
-
-        "test:Router": "jest tests/Router.spec.ts"
+        "test:Router": "jest tests/Router.spec.ts",
+        "tommy:deploy:testnet": "dotenv -f testnet.deployer.env run -- blueprint run tommy_deployRouter --testnet --tonviewer --mnemonic",
+        "tommy:deploy:jetton:testnet": "dotenv -f testnet.deployer.env run -- blueprint run tommy_deploy_jetton --testnet --tonviewer --mnemonic",
+        "tommy:mint:jetton:testnet": "dotenv -f testnet.deployer.env run -- blueprint run tommy_mint_jetton --testnet --tonviewer --mnemonic",
+        "tommy:create:jetton:testnet": "dotenv -f testnet.deployer.env run -- blueprint run tommy_create_redpacket_jetton --testnet --tonviewer --mnemonic",
+        "tommy:create:wton:testnet": "dotenv -f testnet.deployer.env run -- blueprint run tommy_create_redpacket_wton --testnet --tonviewer --mnemonic",
+        "tommy:mintToken:testnet": "dotenv -f testnet.deployer.env run -- blueprint run tommy_mintWton --testnet --tonviewer --mnemonic"
     },
     "devDependencies": {
         "@ton/blueprint": "^0.22.0",
