@@ -18,6 +18,7 @@ export async function main() {
     console.log(WalletContractV4.create({ workchain: 0, publicKey: serverKeyPair.publicKey }).address)
 
     console.log("secretKey: ", serverKeyPair.secretKey.toString("hex"))
+    console.log("public: ", serverKeyPair.publicKey.toString("hex"))
 
     let toSign = beginCell()
         .storeUint(1111, 64)

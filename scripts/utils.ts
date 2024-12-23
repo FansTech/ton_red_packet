@@ -1,11 +1,14 @@
-import {BigNumber} from 'bignumber.js'
+import { BigNumber } from 'bignumber.js'
 import Decimal from "decimal.js";
-import {KeyPair} from "@ton/crypto/dist/primitives/nacl";
-import {Address, beginCell, Cell, Slice} from "@ton/core";
-import {sha256_sync, sign} from "@ton/crypto";
+import { KeyPair } from "@ton/crypto/dist/primitives/nacl";
+import { Address, beginCell, Cell, Slice } from "@ton/core";
+import { sha256_sync, sign } from "@ton/crypto";
 
 export const addressZero = Address.parse(`EQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAM9c`)
 
+export async function delay(ms: number) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
 export function sha256(input: Buffer): bigint {
     return BigInt('0x' + sha256_sync(input).toString('hex'))
 }

@@ -17,11 +17,11 @@ export async function run(provider: NetworkProvider) {
     }
     let queryId = 0
     let id = 2
-    let receipt = address(`EQC1Z3V5mE5dZmlf38-0-TzC_pHk08QkknunCLC_0-uQLVjQ`)
+    let receipt = address(`EQC-1W9Tq2eCV1pRkksJ63lVxuOCgL_kvIIV01GCBxqNj40p`)
     let amount = toNano(0.1)
 
 
-    const routerAddress = address("EQDosZXlMVgBKckXMkUFBPPo5yjT6HCHj0Z5qTH40vsoZfMn")
+    const routerAddress = address("EQC9ILYLSq1U00KY8pBAwalNg2bb0flEPvRT9yOvAoyqOtL_")
     const router = provider.open(RouterWrapper.createFromAddress(routerAddress))
     const fee = await router.getRouterClaimTxFee()
     console.log(`router tx fee ${fromNano(fee)}`)

@@ -24,7 +24,7 @@ export async function run(provider: NetworkProvider) {
     let deadline = Date.parse(new Date().toString()) / 1000 + 360;
 
 
-    const routerAddress = address("EQAr0nmMC6f8mPmIVoyFZfjOuu5yXB2UR11xBE1cSVbmOaJl")
+    const routerAddress = address("EQC9ILYLSq1U00KY8pBAwalNg2bb0flEPvRT9yOvAoyqOtL_")
     const wtonAddress = address(`EQCqa8bBrpnytxPbgjK6LtOJ8R_qLxtkwTwq_n1FtOROa2if`)
     let serverKeyPair = await mnemonicToPrivateKey("scan taxi hockey learn saddle furnace grocery rhythm thrive husband noise park force program shine rib proud trigger spread where carpet season rocket online".split(` `)); // EQCq4U95YNJviVnaskaGVvf0dIfMx9xAQRZnDByEK3u4eeD1
 

@@ -4,7 +4,7 @@ import { WalletContractV4 } from "@ton/ton";
 import { saveToFile } from "./save";
 import { RouterWrapper } from "../adapters/Router.wrapper";
 import { mnemonicToPrivateKey } from "@ton/crypto";
-import { addressZero, buildCodeDeployment } from "./utils";
+import { addressZero, buildCodeDeployment, delay } from "./utils";
 import { WTonMinterWrapper } from "../adapters/WTonMinter.wrapper";
 import { WTonWalletWrapper } from "../adapters/WTonWallet.wrapper";
 
@@ -12,7 +12,7 @@ export async function run(provider: NetworkProvider) {
 
     let save: Record<string, any> = {}
     save.network = provider.network()
-    const router = address(`EQDosZXlMVgBKckXMkUFBPPo5yjT6HCHj0Z5qTH40vsoZfMn`)
+    const router = address(`EQC9ILYLSq1U00KY8pBAwalNg2bb0flEPvRT9yOvAoyqOtL_`)
 
     // wton 
     let wTonWalletCode = await compile(`WTonWallet`);
@@ -36,6 +36,7 @@ export async function run(provider: NetworkProvider) {
     console.log(`wton: ${wTonMinter.address}`);
     const wTonAddress = wTonMinter.address
 
+    await delay(10000);
 
     // const wTonAddress = address(`EQCqa8bBrpnytxPbgjK6LtOJ8R_qLxtkwTwq_n1FtOROa2if`)
     let wTonWalletRouter = provider.open(
