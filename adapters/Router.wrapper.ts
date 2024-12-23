@@ -1,7 +1,7 @@
-import {Address, beginCell, Cell, Contract, contractAddress, ContractProvider, Sender, SendMode} from '@ton/core';
-import {crc32str} from "./crc32";
-import {KeyPair} from "@ton/crypto/dist/primitives/nacl";
-import {signCell} from "../scripts/utils";
+import { Address, beginCell, Cell, Contract, contractAddress, ContractProvider, Sender, SendMode } from '@ton/core';
+import { crc32str } from "./crc32";
+import { KeyPair } from "@ton/crypto/dist/primitives/nacl";
+import { signCell } from "../scripts/utils";
 
 export class RouterWrapper implements Contract {
     static readonly Opcodes = {
@@ -36,7 +36,7 @@ export class RouterWrapper implements Contract {
                     .endCell()
             )
             .endCell();
-        const init = {code, data};
+        const init = { code, data };
         return new RouterWrapper(contractAddress(workchain, init), init);
     }
 
@@ -150,6 +150,8 @@ export class RouterWrapper implements Contract {
             .endCell()
 
         let sig = signCell(opts.keyPair, toSign)
+        console.log(`sign hash: ${toSign.hash().toString('hex')}`)
+        console.log(`sign : ${sig.toString('hex')}`)
 
         return beginCell()
             .storeUint(RouterWrapper.Opcodes.close, 32)
@@ -181,8 +183,8 @@ export class RouterWrapper implements Contract {
 
     async getRouterCreateTxFee(provider: ContractProvider, opts: { perfee: bigint | number, totalPack: bigint | number }) {
         let res = await provider.get('get_router_create_tx_fee', [
-            {type: 'int', value: BigInt(opts.perfee)},
-            {type: 'int', value: BigInt(opts.totalPack)},
+            { type: 'int', value: BigInt(opts.perfee) },
+            { type: 'int', value: BigInt(opts.totalPack) },
         ]);
 
         let fee = res.stack.readBigNumber();
@@ -266,7 +268,7 @@ export class RouterWrapper implements Contract {
         redPacketIndex: bigint | number,
     }) {
         let res = await provider.get('get_red_packet', [
-            {type: 'int', value: BigInt(opts.redPacketIndex)},
+            { type: 'int', value: BigInt(opts.redPacketIndex) },
         ]);
 
         let redPacketAddress = res.stack.readAddress();

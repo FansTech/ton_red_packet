@@ -7,11 +7,15 @@
         "deploy:router:testnet": "dotenv -e testnet.deployer.env -- blueprint run deployRouter --testnet --tonviewer --mnemonic",
         "test:Router": "jest tests/Router.spec.ts",
         "tommy:deploy:testnet": "dotenv -f testnet.deployer.env run -- blueprint run tommy_deployRouter --testnet --tonviewer --mnemonic",
+        "tommy:deploy:wton:testnet": "dotenv -f testnet.deployer.env run -- blueprint run tommy_deploy_wton --testnet --tonviewer --mnemonic",
         "tommy:deploy:jetton:testnet": "dotenv -f testnet.deployer.env run -- blueprint run tommy_deploy_jetton --testnet --tonviewer --mnemonic",
         "tommy:mint:jetton:testnet": "dotenv -f testnet.deployer.env run -- blueprint run tommy_mint_jetton --testnet --tonviewer --mnemonic",
+        "tommy:create:wton:testnet": "dotenv -f testnet.deployer.env run -- blueprint run tommy_wton_redpacket_create --testnet --tonviewer --mnemonic",
         "tommy:create:jetton:testnet": "dotenv -f testnet.deployer.env run -- blueprint run tommy_jetton_redpacket_create --testnet --tonviewer --mnemonic",
         "tommy:claim:jetton:testnet": "dotenv -f testnet.deployer.env run -- blueprint run tommy_jetton_redpacket_claim --testnet --tonviewer --mnemonic",
-        "tommy:refund:jetton:testnet": "dotenv -f testnet.deployer.env run -- blueprint run tommy_jetton_redpacket_refund --testnet --tonviewer --mnemonic"
+        "tommy:refund:jetton:testnet": "dotenv -f testnet.deployer.env run -- blueprint run tommy_jetton_redpacket_refund --testnet --tonviewer --mnemonic",
+        "tommy:sign:create": "dotenv -f testnet.deployer.env run -- blueprint run tommy_sign_create --testnet --tonviewer --mnemonic",
+        "tommy:sign:refund": "dotenv -f testnet.deployer.env run -- blueprint run tommy_sign_refund --testnet --tonviewer --mnemonic"
     },
     "devDependencies": {
         "@ton/blueprint": "^0.22.0",

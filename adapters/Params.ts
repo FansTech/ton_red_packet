@@ -1,7 +1,7 @@
-import {Address, beginCell, Cell, Contract} from '@ton/core';
-import {crc32str} from "./crc32";
-import {signCell} from "../scripts/utils";
-import {KeyPair} from "@ton/crypto/dist/primitives/nacl";
+import { Address, beginCell, Cell, Contract } from '@ton/core';
+import { crc32str } from "./crc32";
+import { signCell } from "../scripts/utils";
+import { KeyPair } from "@ton/crypto/dist/primitives/nacl";
 
 export type PacketType =
     | MultipleAverage
@@ -87,6 +87,8 @@ export class Params implements Contract {
             .endCell()
 
         let sig = signCell(opts.keyPair, createServerCheck);
+        console.log(`sign hash: ${createServerCheck.hash().toString('hex')}`)
+        console.log(`sign : ${sig.toString('hex')}`)
 
         return body
             .storeRef(

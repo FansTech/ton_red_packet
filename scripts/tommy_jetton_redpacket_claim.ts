@@ -16,12 +16,12 @@ export async function run(provider: NetworkProvider) {
         throw new Error("empty sender address")
     }
     let queryId = 0
-    let id = 1
+    let id = 2
     let receipt = address(`EQC1Z3V5mE5dZmlf38-0-TzC_pHk08QkknunCLC_0-uQLVjQ`)
-    let amount = toNano(0.001)
+    let amount = toNano(0.1)
 
 
-    const routerAddress = address("EQBAs_bWOkVwIsAgo3TE4GzgJqERTY7mxj7YUjo3QNui6K4X")
+    const routerAddress = address("EQDosZXlMVgBKckXMkUFBPPo5yjT6HCHj0Z5qTH40vsoZfMn")
     const router = provider.open(RouterWrapper.createFromAddress(routerAddress))
     const fee = await router.getRouterClaimTxFee()
     console.log(`router tx fee ${fromNano(fee)}`)
@@ -34,7 +34,7 @@ export async function run(provider: NetworkProvider) {
                 redPacketIndex: id,
                 recipient: receipt,
                 amount: amount, //服务器指定
-                recipientUid: beginCell().storeUint(1, 10).endCell()
+                recipientUid: beginCell().storeUint(1, 64).endCell()
             }
         ]
     )

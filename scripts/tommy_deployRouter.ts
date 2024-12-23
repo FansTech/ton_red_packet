@@ -18,7 +18,7 @@ export async function run(provider: NetworkProvider) {
     const deployer = provider.sender().address!!
 
     //reporter address, 汇报
-    let reporter = address(`EQCIYJ8kChj5d9HsR-zpeuNvEKDS20Xb9ZnqTrmIpU5JwiG1`)
+    let reporter = address(`EQDeVWCUemIlbucceXBH2tuCgTAFJu5A7xtGlfSJcYmGRZ_u`)
     // EQBOTU-Q7aWJ0rd3SlFal_XMPG9JkGR4wcHMIZPNJC8xIKW6 //  [
     //   "scan", "taxi", "hockey", "learn", "saddle", "furnace", "grocery", "rhythm", "thrive", "husband", "noise",
     //   "park", "force", "program", "shine", "rib", "proud", "trigger", "spread", "where", "carpet", "season",

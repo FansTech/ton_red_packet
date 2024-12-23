@@ -12,7 +12,7 @@ export async function run(provider: NetworkProvider) {
 
     let save: Record<string, any> = {}
     save.network = provider.network()
-    const router = address(`EQBAs_bWOkVwIsAgo3TE4GzgJqERTY7mxj7YUjo3QNui6K4X`)
+    const router = address(`EQDosZXlMVgBKckXMkUFBPPo5yjT6HCHj0Z5qTH40vsoZfMn`)
 
     // wton 
     let wTonWalletCode = await compile(`WTonWallet`);

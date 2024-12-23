@@ -18,30 +18,50 @@ export async function run(provider: NetworkProvider) {
     let queryId = 0
     let id = 2
     let perfee = 10000000
-    let totalPack = 2
+    let totalPack = 1
     let supply = toNano(0.2)
     // let deadline = Date.parse(new Date().toString()) / 1000 + 3600 * 24;
     let deadline = Date.parse(new Date().toString()) / 1000 + 360;
 
 
-    const routerAddress = address("EQDosZXlMVgBKckXMkUFBPPo5yjT6HCHj0Z5qTH40vsoZfMn")
-    const jettonAddress = address(`EQDJo4SdGFocukquMLiGUGZ8uHrZA7syQvNWUSN0vGJ_S6Zb`)
+    const routerAddress = address("EQAr0nmMC6f8mPmIVoyFZfjOuu5yXB2UR11xBE1cSVbmOaJl")
+    const wtonAddress = address(`EQCqa8bBrpnytxPbgjK6LtOJ8R_qLxtkwTwq_n1FtOROa2if`)
     let serverKeyPair = await mnemonicToPrivateKey("scan taxi hockey learn saddle furnace grocery rhythm thrive husband noise park force program shine rib proud trigger spread where carpet season rocket online".split(` `)); // EQCq4U95YNJviVnaskaGVvf0dIfMx9xAQRZnDByEK3u4eeD1
 
     const router = provider.open(RouterWrapper.createFromAddress(routerAddress))
     const fee = await router.getRouterCreateTxFee({ perfee: perfee, totalPack: totalPack })
     console.log(`router tx fee ${fromNano(fee)}`)
 
-    const JettonWalletCode = await compile(`JettonWallet`);
-    const jettonMinter = provider.open(JettonMinterWrapper.createFromAddress(jettonAddress))
 
-    const jetTonWalletAddress = await jettonMinter.getWalletAddress(sender.address)
-    const jettonWallet = provider.open(JettonMinterWrapper.createFromAddress(jetTonWalletAddress))
+    const wtonMinter = provider.open(WTonMinterWrapper.createFromAddress(wtonAddress))
+
+    // const wTonWalletAddress = await wtonMinter.getWalletAddress(sender.address)
+    // const wtonWallet = provider.open(WTonMinterWrapper.createFromAddress(wTonWalletAddress))
 
 
-    const jettonWalletRouter = JettonWalletWrapper.createFromAddress(await jettonMinter.getWalletAddress(router.address))
+    const wTonWalletCode = await compile(`WTonWallet`);
+    let wTonMinterCode = await compile(`WTonMinter`);
 
-    const { body, tonAmount } = JettonWalletWrapper.buildTransfer(
+    const wTonWalletSender = provider.open(
+        WTonWalletWrapper.createFromConfig({
+            owner: sender.address,
+            minter: wtonMinter.address,
+            walletCode: wTonWalletCode
+        },
+            wTonWalletCode
+        )
+    );
+
+    const wTonWalletRouter = provider.open(
+        WTonWalletWrapper.createFromConfig({
+            owner: router.address,
+            minter: wtonMinter.address,
+            walletCode: wTonWalletCode
+        },
+            wTonWalletCode
+        )
+    );
+    const { body, tonAmount } = WTonWalletWrapper.buildTransfer(
         {
             queryId: queryId,
             jettonAmount: supply,
@@ -59,7 +79,7 @@ export async function run(provider: NetworkProvider) {
                     perfee: perfee,
                     serverCheck: {
                         queryId: queryId,
-                        jettonRouterWallet: jettonWalletRouter.address,
+                        jettonRouterWallet: wTonWalletRouter.address,
                         redPacketSupply: supply,
                         router: routerAddress,
                     },
@@ -69,5 +89,5 @@ export async function run(provider: NetworkProvider) {
         }
     )
 
-    await jettonWallet.sendTx(sender, tonAmount, body)
+    await wTonWalletSender.sendTx(sender, tonAmount, body)
 }
